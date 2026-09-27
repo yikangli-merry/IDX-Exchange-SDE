@@ -2,25 +2,23 @@
 
 This repository contains the local setup for a real estate property listings project. The final project goal is to build a searchable, filterable, paginated property listings application using React, Node.js/Express, and MySQL, with support for property detail pages and open house schedules.
 
-This README currently focuses on the Week 1 work: local environment setup, Dockerized MySQL, database import, and database verification.
+## Week 1: Environment Setup & Database Import
 
-## Project Overview
+Week 1 focuses on setting up the local database environment. The goal is to run MySQL 8 in Docker, import the two required SQL files, and verify that both tables are populated and queryable.
 
-The project uses two SQL data files:
+### Goal
 
-- `source/rets_property.sql`: property listing data
-- `source/rets_openhouse.sql`: open house event data
+By the end of Week 1:
 
-Database setup:
+- MySQL 8 should run inside Docker.
+- The Docker container should be named `idx-mysql-local`.
+- MySQL should be available on local port `3306`.
+- The database should be named `rets`.
+- The `rets_property` and `rets_openhouse` tables should exist.
+- Both tables should contain data.
+- The database should be queryable from the MySQL shell.
 
-- MySQL 8
-- Docker container name: `idx-mysql-local`
-- Database name: `rets`
-- Local port: `3306`
-
-The Week 1 goal is to run MySQL in Docker, import both SQL files, and verify that both tables are populated and queryable.
-
-## Week 1 Status
+### Completed Work
 
 The following Week 1 tasks have been completed:
 
@@ -28,10 +26,10 @@ The following Week 1 tasks have been completed:
 - The `mysql:8` Docker image was downloaded.
 - The MySQL container `idx-mysql-local` was created.
 - The database `rets` was created.
-- `rets_property.sql` was imported.
-- `rets_openhouse.sql` was imported.
-- Both tables were verified to exist.
-- Both tables were verified to contain data.
+- `source/rets_property.sql` was imported.
+- `source/rets_openhouse.sql` was imported.
+- Both required tables were verified to exist.
+- Both required tables were verified to contain data.
 - The container was verified to restart successfully with `docker start idx-mysql-local`.
 
 Verified row counts:
@@ -49,22 +47,33 @@ idxlocal123
 
 Note: this password is only for the local development environment. It should not be used in production.
 
-## Prerequisites
+### Source Files
 
-To run the local database environment, install:
+The project uses two SQL data files:
 
-- Docker Desktop
-- PowerShell
-- Optional: MySQL client, although the MySQL CLI inside the Docker container can also be used
+```text
+source/rets_property.sql
+source/rets_openhouse.sql
+```
 
-If the database needs to be recreated from scratch, make sure these files exist:
+On this machine, the full paths are:
 
 ```text
 D:\idx_exchange\sde_project\source\rets_property.sql
 D:\idx_exchange\sde_project\source\rets_openhouse.sql
 ```
 
-## Start The Database
+`rets_property.sql` contains property listing data. `rets_openhouse.sql` contains open house event data.
+
+### Prerequisites
+
+To run the Week 1 database environment, install:
+
+- Docker Desktop
+- PowerShell
+- Optional: MySQL client, although the MySQL CLI inside the Docker container can also be used
+
+### Start The Database
 
 Open Docker Desktop first and wait until the Docker engine is running.
 
@@ -92,7 +101,7 @@ Expected output should include something similar to:
 idx-mysql-local   0.0.0.0:3306->3306/tcp   mysql:8
 ```
 
-## Connect To MySQL
+### Connect To MySQL
 
 Enter the MySQL shell inside the Docker container:
 
@@ -112,9 +121,9 @@ After a successful login, the terminal should show:
 mysql>
 ```
 
-## Verify The Database
+### Verify The Database
 
-Inside the MySQL shell, run:
+Inside the MySQL shell, show the tables:
 
 ```sql
 SHOW TABLES;
@@ -177,9 +186,7 @@ FROM rets_openhouse
 LIMIT 5;
 ```
 
-## Key Database Tables
-
-### `rets_property`
+### Key Table: `rets_property`
 
 `rets_property` is the main property listings table. It will be used by the property listing page, filter API, and property detail page.
 
@@ -212,7 +219,7 @@ baths -> LM_Dec_3
 sqft -> LM_Int2_3
 ```
 
-### `rets_openhouse`
+### Key Table: `rets_openhouse`
 
 `rets_openhouse` stores open house event information.
 
@@ -228,7 +235,7 @@ all_data: additional open house information stored as JSON data
 
 The two tables can be connected through `L_ListingID`.
 
-## Recreate The Container From Scratch
+### Recreate The Week 1 Container From Scratch
 
 If the `idx-mysql-local` container does not exist, recreate it with:
 
@@ -251,7 +258,7 @@ cmd.exe /c 'docker exec -i idx-mysql-local mysql -uroot -pidxlocal123 --binary-m
 
 `rets_property.sql` is large, so importing it and building indexes can take a long time. Do not interrupt the command while the import is running.
 
-## Port 3306 Conflict
+### Port 3306 Conflict
 
 This computer also has a local Windows MySQL service:
 
@@ -275,7 +282,7 @@ Start-Service MySQL80
 
 Only one MySQL server can bind to local port `3306` at a time.
 
-## Week 1 Demo Checklist
+### Week 1 Demo Checklist
 
 For the Week 1 demo, show the following:
 
@@ -333,7 +340,7 @@ FROM rets_property
 LIMIT 5;
 ```
 
-## Why Docker Is Used
+### Why Docker Is Used In Week 1
 
 Docker is used for MySQL because it makes the development environment more consistent and reproducible:
 
@@ -343,15 +350,10 @@ Docker is used for MySQL because it makes the development environment more consi
 - It gives the future Node/Express API a stable local database target.
 - If the environment breaks, the container can be recreated without changing the application code.
 
-## Current Notes
+### Current Notes
 
 - The original SQL files are still stored in the `source/` directory.
 - Docker Desktop data uses disk space on the D drive.
 - The `idx-mysql-local` MySQL data is stored in a Docker volume.
 - Do not delete the `idx-mysql-local` Docker volume unless the SQL files can be imported again.
-
-More detailed Week 1 demo notes and presentation script are available in:
-
-```text
-WEEK1_DEMO_GUIDE.md
-```
+- More detailed Week 1 demo notes and presentation script are available in `WEEK1_DEMO_GUIDE.md`.
