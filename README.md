@@ -1,4 +1,4 @@
-# SDE Internship Project
+# 2026 Fall - SDE Internship Project
 
 This repository contains the local setup for a real estate property listings project. The final project goal is to build a searchable, filterable, paginated property listings application using React, Node.js/Express, and MySQL, with support for property detail pages and open house schedules.
 
