@@ -23,8 +23,7 @@ The following Week 1 tasks have been completed:
 - Installed and started Docker Desktop.
 - Created a MySQL 8 Docker container named `idx-mysql-local`.
 - Created the local database `rets`.
-- Imported `source/rets_property.sql`.
-- Imported `source/rets_openhouse.sql`.
+- Imported the local SQL files into MySQL.
 - Verified that both required tables exist.
 - Verified that both tables contain data.
 
@@ -99,7 +98,7 @@ sqft -> LM_Int2_3
 
 ### Notes
 
-- The original SQL files are stored in the `source/` directory.
+- The original SQL files are kept locally and are not required in the GitHub repository.
 - The MySQL Docker container is named `idx-mysql-local`.
 - The database name is `rets`.
 - Docker is used to keep the local database environment consistent.

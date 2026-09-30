@@ -6,5 +6,4 @@ backend/.env
 
 npm-debug.log*
 
-source/rets_property.sql
-source/california_sold.sql
+source/
