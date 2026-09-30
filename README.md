@@ -4,33 +4,29 @@ This repository contains the local setup for a real estate property listings pro
 
 ## Week 1: Environment Setup & Database Import
 
-Week 1 focuses on setting up the local database environment. The goal is to run MySQL 8 in Docker, import the two required SQL files, and verify that both tables are populated and queryable.
+Week 1 focused on setting up the local MySQL database environment. The goal was to run MySQL 8 in Docker, import the required SQL files, and verify that the database tables were ready for backend development.
 
 ### Goal
 
 By the end of Week 1:
 
-- MySQL 8 should run inside Docker.
+- MySQL 8 should run in Docker.
 - The Docker container should be named `idx-mysql-local`.
 - MySQL should be available on local port `3306`.
 - The database should be named `rets`.
-- The `rets_property` and `rets_openhouse` tables should exist.
-- Both tables should contain data.
-- The database should be queryable from the MySQL shell.
+- The `rets_property` and `rets_openhouse` tables should exist and contain data.
 
 ### Completed Work
 
 The following Week 1 tasks have been completed:
 
-- Docker Desktop was installed and started.
-- The `mysql:8` Docker image was downloaded.
-- The MySQL container `idx-mysql-local` was created.
-- The database `rets` was created.
-- `source/rets_property.sql` was imported.
-- `source/rets_openhouse.sql` was imported.
-- Both required tables were verified to exist.
-- Both required tables were verified to contain data.
-- The container was verified to restart successfully with `docker start idx-mysql-local`.
+- Installed and started Docker Desktop.
+- Created a MySQL 8 Docker container named `idx-mysql-local`.
+- Created the local database `rets`.
+- Imported `source/rets_property.sql`.
+- Imported `source/rets_openhouse.sql`.
+- Verified that both required tables exist.
+- Verified that both tables contain data.
 
 Verified row counts:
 
@@ -39,161 +35,49 @@ rets_property: 55212 rows
 rets_openhouse: 13433 rows
 ```
 
-Local development MySQL root password:
-
-```text
-idxlocal123
-```
-
-Note: this password is only for the local development environment. It should not be used in production.
-
-### Source Files
-
-The project uses two SQL data files:
-
-```text
-source/rets_property.sql
-source/rets_openhouse.sql
-```
-
-On this machine, the full paths are:
-
-```text
-D:\idx_exchange\sde_project\source\rets_property.sql
-D:\idx_exchange\sde_project\source\rets_openhouse.sql
-```
-
-`rets_property.sql` contains property listing data. `rets_openhouse.sql` contains open house event data.
-
-### Prerequisites
-
-To run the Week 1 database environment, install:
-
-- Docker Desktop
-- PowerShell
-- Optional: MySQL client, although the MySQL CLI inside the Docker container can also be used
-
 ### Start The Database
-
-Open Docker Desktop first and wait until the Docker engine is running.
-
-Then open PowerShell and go to the project directory:
 
 ```powershell
 cd D:\idx_exchange\sde_project
-```
-
-Start the MySQL container:
-
-```powershell
 docker start idx-mysql-local
-```
-
-Check that the container is running:
-
-```powershell
 docker ps
 ```
 
-Expected output should include something similar to:
-
-```text
-idx-mysql-local   0.0.0.0:3306->3306/tcp   mysql:8
-```
-
 ### Connect To MySQL
-
-Enter the MySQL shell inside the Docker container:
 
 ```powershell
 docker exec -it idx-mysql-local mysql -uroot -p rets
 ```
 
-Enter the password:
+Local development password:
 
 ```text
 idxlocal123
 ```
 
-After a successful login, the terminal should show:
-
-```text
-mysql>
-```
-
 ### Verify The Database
-
-Inside the MySQL shell, show the tables:
 
 ```sql
 SHOW TABLES;
+SELECT COUNT(*) FROM rets_property;
+SELECT COUNT(*) FROM rets_openhouse;
 ```
 
 Expected tables:
 
 ```text
-rets_openhouse
 rets_property
+rets_openhouse
 ```
 
-Check the row counts:
+### Important Table Notes
 
-```sql
-SELECT COUNT(*) FROM rets_property;
-SELECT COUNT(*) FROM rets_openhouse;
-```
+`rets_property` stores property listing data. `rets_openhouse` stores open house event data. The two tables can be connected through `L_ListingID`.
 
-Both counts should be greater than 0. Current verified local results:
+Important `rets_property` columns:
 
 ```text
-rets_property: 55212
-rets_openhouse: 13433
-```
-
-Inspect the table schemas:
-
-```sql
-DESCRIBE rets_property;
-DESCRIBE rets_openhouse;
-```
-
-Sample property query:
-
-```sql
-SELECT
-  L_ListingID,
-  L_Address,
-  L_City,
-  L_State,
-  L_Zip,
-  L_SystemPrice,
-  L_Keyword2,
-  LM_Dec_3,
-  LM_Int2_3
-FROM rets_property
-LIMIT 5;
-```
-
-Sample open house query:
-
-```sql
-SELECT
-  L_ListingID,
-  OpenHouseDate,
-  OH_StartTime,
-  OH_EndTime
-FROM rets_openhouse
-LIMIT 5;
-```
-
-### Key Table: `rets_property`
-
-`rets_property` is the main property listings table. It will be used by the property listing page, filter API, and property detail page.
-
-Important columns:
-
-```text
-L_ListingID: property listing ID; also used to connect with open house records
+L_ListingID: property listing ID
 L_Address: property address
 L_City: city
 L_State: state
@@ -202,15 +86,9 @@ L_SystemPrice: listing price
 L_Keyword2: number of bedrooms
 LM_Dec_3: number of bathrooms
 LM_Int2_3: living area / square footage
-L_Photos: photo URL data
-LMD_MP_Latitude: latitude
-LMD_MP_Longitude: longitude
-L_Remarks: property description
-YearBuilt: year built
-LotSizeAcres: lot size in acres
 ```
 
-Important note: this table uses older RETS-style column names. The column names are not standard application names like `price`, `beds`, or `baths`. SQL queries must use the real database column names:
+This database uses RETS-style column names:
 
 ```text
 price -> L_SystemPrice
@@ -219,141 +97,129 @@ baths -> LM_Dec_3
 sqft -> LM_Int2_3
 ```
 
-### Key Table: `rets_openhouse`
+### Notes
 
-`rets_openhouse` stores open house event information.
+- The original SQL files are stored in the `source/` directory.
+- The MySQL Docker container is named `idx-mysql-local`.
+- The database name is `rets`.
+- Docker is used to keep the local database environment consistent.
+- If port `3306` is already in use, the local Windows service `MySQL80` may need to be stopped first.
 
-Important columns:
+
+
+## Week 2: Backend Foundation & REST API Basics
+
+Week 2 focuses on creating a basic Node.js/Express backend server and connecting it to the local MySQL database from Week 1.
+
+### Goal
+
+By the end of Week 2:
+
+- The backend server should run on port `5000`.
+- The backend should connect to the MySQL database `rets`.
+- A `GET /api/health` endpoint should check database connectivity.
+- The server should handle database errors without crashing.
+
+### Completed Work
+
+The following Week 2 tasks have been completed:
+
+- Created a new `backend/` folder.
+- Initialized a Node.js project.
+- Installed `express`, `mysql2`, `dotenv`, and `cors`.
+- Installed `nodemon` as a development dependency.
+- Added `npm run dev` and `npm start` scripts.
+- Created a MySQL connection pool.
+- Created the `GET /api/health` endpoint.
+- Added `.env.example` for environment variable reference.
+- Added `.gitignore` rules for `.env`, `node_modules/`, and large SQL files.
+- Tested both connected and disconnected database states.
+- Pushed the Week 2 backend code to GitHub.
+
+### Backend Files
+
+Important backend files:
 
 ```text
-L_ListingID: property listing ID that connects to rets_property
-OpenHouseDate: open house date
-OH_StartTime: start time
-OH_EndTime: end time
-all_data: additional open house information stored as JSON data
+backend/package.json
+backend/.env.example
+backend/src/db.js
+backend/src/server.js
 ```
 
-The two tables can be connected through `L_ListingID`.
+### Environment Variables
 
-### Recreate The Week 1 Container From Scratch
+Example backend configuration:
 
-If the `idx-mysql-local` container does not exist, recreate it with:
-
-```powershell
-docker run --name idx-mysql-local -e MYSQL_ROOT_PASSWORD=idxlocal123 -e MYSQL_DATABASE=rets -p 3306:3306 -d mysql:8
+```
+PORT=5000
+DB_HOST=127.0.0.1
+DB_PORT=3306
+DB_USER=root
+DB_PASSWORD=your_local_password
+DB_NAME=rets
+DB_CONNECTION_LIMIT=10
 ```
 
-Wait until MySQL is ready:
+The real .env file is kept locally and is not committed to GitHub.
 
-```powershell
-docker exec idx-mysql-local mysqladmin ping -uroot -pidxlocal123
+### Run The Backend
+
+Go to the backend folder:
+
+```npm install
 ```
 
-Import the SQL files:
+Start the development server:
 
-```powershell
-cmd.exe /c 'docker exec -i idx-mysql-local mysql -uroot -pidxlocal123 --binary-mode=1 rets < "D:\idx_exchange\sde_project\source\rets_property.sql"'
-cmd.exe /c 'docker exec -i idx-mysql-local mysql -uroot -pidxlocal123 --binary-mode=1 rets < "D:\idx_exchange\sde_project\source\rets_openhouse.sql"'
+```npm run dev
 ```
 
-`rets_property.sql` is large, so importing it and building indexes can take a long time. Do not interrupt the command while the import is running.
+Expected output:
 
-### Port 3306 Conflict
-
-This computer also has a local Windows MySQL service:
-
-```text
-MySQL80
+```Server running on port 5000
 ```
 
-That service may also use port `3306`. If the Docker container fails to start because port `3306` is already in use, stop the local MySQL service from an administrator PowerShell:
+### Health Check API
 
-```powershell
-Stop-Service MySQL80
-docker start idx-mysql-local
+Endpoint:
+
+```GET /api/health
 ```
 
-To switch back to older local projects that use the Windows MySQL service, stop the Docker container and start `MySQL80` again:
+When MySQL is connected:
 
-```powershell
-docker stop idx-mysql-local
-Start-Service MySQL80
+```
+{
+  "status": "ok",
+  "database": "connected"
+}
 ```
 
-Only one MySQL server can bind to local port `3306` at a time.
+When MySQL is unreachable:
 
-### Week 1 Demo Checklist
-
-For the Week 1 demo, show the following:
-
-1. The Docker container is running:
-
-```powershell
-docker ps
+```
+{
+  "status": "error",
+  "database": "disconnected"
+}
 ```
 
-2. The container can restart:
+In the disconnected case, the API returns HTTP 500, but the server does not crash.
 
-```powershell
-docker stop idx-mysql-local
-docker start idx-mysql-local
-```
+### Week 2 Demo Checklist
 
-3. MySQL can be accessed:
+For the Week 2 demo, show:
+1. The ```backend/``` folder.
+2. ```package.json``` dependencies and scripts.
+3. ```backend/src/db.js``` connection pool.
+4. ```backend/src/server.js``` health check route.
+5. The server running with ```npm run dev```.
+6. ```/api/health``` returning the correct response.
 
-```powershell
-docker exec -it idx-mysql-local mysql -uroot -p rets
-```
+### Notes
 
-4. Both required tables exist:
-
-```sql
-SHOW TABLES;
-```
-
-5. Both required tables contain data:
-
-```sql
-SELECT COUNT(*) FROM rets_property;
-SELECT COUNT(*) FROM rets_openhouse;
-```
-
-6. Table schemas can be inspected:
-
-```sql
-DESCRIBE rets_property;
-DESCRIBE rets_openhouse;
-```
-
-7. Real records can be queried:
-
-```sql
-SELECT
-  L_ListingID,
-  L_Address,
-  L_City,
-  L_SystemPrice,
-  L_Keyword2,
-  LM_Dec_3,
-  LM_Int2_3
-FROM rets_property
-LIMIT 5;
-```
-
-### Why Docker Is Used In Week 1
-
-Docker is used for MySQL because it makes the development environment more consistent and reproducible:
-
-- It avoids depending on each developer's local MySQL installation.
-- It keeps the MySQL version fixed at MySQL 8.
-- It keeps the container name, port, and database name consistent.
-- It gives the future Node/Express API a stable local database target.
-- If the environment breaks, the container can be recreated without changing the application code.
-
-### Current Notes
-
-- The original SQL files are still stored in the `source/` directory.
-- Docker Desktop data uses disk space on the D drive.
-- The `idx-mysql-local` MySQL data is stored in a Docker volume.
-- Do not delete the `idx-mysql-local` Docker volume unless the SQL files can be imported again.
-- More detailed Week 1 demo notes and presentation script are available in `WEEK1_DEMO_GUIDE.md`.
+- The backend uses port ```5000```.
+- The database name is ```rets```.
+- ```.env``` and ```node_modules/``` are not committed.
+- Large SQL files are not uploaded to GitHub.
