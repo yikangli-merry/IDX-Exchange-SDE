@@ -167,25 +167,21 @@ The real .env file is kept locally and is not committed to GitHub.
 
 Go to the backend folder:
 
-```npm install
-```
+```npm install```
 
 Start the development server:
 
-```npm run dev
-```
+```npm run dev```
 
 Expected output:
 
-```Server running on port 5000
-```
+```Server running on port 5000```
 
 ### Health Check API
 
 Endpoint:
 
-```GET /api/health
-```
+```GET /api/health```
 
 When MySQL is connected:
 
