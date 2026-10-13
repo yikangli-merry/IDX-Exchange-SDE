@@ -378,3 +378,120 @@ npm test
 - MySQL or Docker Desktop must be running before API and `EXPLAIN` checks.
 - If database login fails, confirm `backend/.env` matches local MySQL credentials.
 - `beds` and `baths` use exact matching.
+
+## Week 4: Property Detail & Open House Endpoints
+
+Week 4 adds backend support for property detail pages and open house schedules. The goal is to let the frontend request one property by listing ID, then request the open house events connected to that same property.
+
+### Goal
+
+- Add `GET /api/properties/:id`.
+- Add `GET /api/properties/:id/openhouses`.
+- Validate listing IDs before querying the database.
+- Return helpful `400`, `404`, and `500` responses.
+- Add request logging for method, URL, timestamp, status code, and response time.
+- Keep route order correct so the open houses endpoint is matched before the dynamic `/:id` endpoint.
+
+### Completed Work
+
+- Added property detail lookup by `L_ListingID`.
+- Added open house lookup by `L_ListingID`.
+- Added validation for invalid listing IDs.
+- Added `404` handling when a property does not exist.
+- Added request logging middleware.
+- Added unit tests for validation, SQL query building, property lookup, open house lookup, and logging.
+- Verified the local MySQL Docker container is running.
+- Verified the API works against the local `rets` database.
+
+### Backend Files
+
+```text
+backend/src/app.js
+backend/src/routes/properties.js
+backend/src/middleware/requestLogger.js
+backend/src/services/propertyDetails.js
+backend/test/propertyDetails.test.js
+backend/test/requestLogger.test.js
+```
+
+### API
+
+Property detail endpoint:
+```GET /api/properties/:id```
+Example:
+```GET http://localhost:5000/api/properties/1178585070```
+This returns one full property object from rets_property.
+Open houses endpoint:
+```GET /api/properties/:id/openhouses```
+Example:
+```GET http://localhost:5000/api/properties/1178585070/openhouses```
+This returns an array of open house events from ```rets_openhouse```. An empty array is valid if the property exists but has no open house events.
+
+### Validation And Error Handling
+
+- ```:id``` must be a numeric listing ID.
+- Invalid IDs return HTTP 400.
+- Unknown property IDs return HTTP 404.
+- Database or server errors return HTTP 500.
+- Open house events are ordered by ```OpenHouseDate```, ```OH_StartTime```, and ```id```.
+Example invalid ID response:
+```{
+  "error": "\"id\" must be a numeric listing ID."
+}
+```
+Example missing property response:
+```{
+  "error": "Property not found for listing ID 999999999999999."
+}
+```
+
+### Route Order Note
+
+The ```/api/properties/:id/openhouses``` route must be registered before ```/api/properties/:id```.
+Express checks routes in the order they are defined. If ```/:id``` is registered first, Express may treat ```/1178585070/openhouses``` incorrectly as part of the dynamic ID route.
+
+### Request Logging
+
+Every request prints one log line in the terminal with:
+```timestamp, method, URL, status code, response time```
+Example:
+```[2026-10-13T02:48:11.488Z] GET /api/properties/1178585070/openhouses 200 5.0ms```
+
+### Run And Test
+
+Start the database:
+```docker start idx-mysql-local```
+Start the backend:
+```cd D:\idx_exchange\sde_project\backend
+npm run dev
+```
+Manual test URLs:
+```GET http://localhost:5000/api/health
+GET http://localhost:5000/api/properties/1178585070
+GET http://localhost:5000/api/properties/1178585070/openhouses
+GET http://localhost:5000/api/properties/not-a-number
+GET http://localhost:5000/api/properties/999999999999999
+```
+Run unit tests:
+```npm test```
+Current test result:
+```14 tests passing```
+
+### Week 4 Demo Checklist
+
+1. Show ```GET /api/properties/:id``` returning one full property.
+2. Show ```GET /api/properties/:id/openhouses``` returning open house events.
+3. Show invalid ID returning HTTP 400.
+4. Show unknown ID returning HTTP 404.
+5. Show request logs in the terminal.
+6. Show that open house events are ordered by date and start time.
+7. Explain why ```/openhouses``` must be registered before ```/:id```.
+8. Run ``npm test``` and show all tests passing.
+
+### Notes
+
+- Week 4 is backend-only.
+- Property lookup uses ```L_ListingID```, not the database auto-increment ```id```.
+- The ```rets_property``` and ```rets_openhouse``` tables connect through ```L_ListingID```.
+- The ```all_data``` column in ```rets_openhouse``` is returned as-is and is not parsed in the backend.
+- MySQL or Docker Desktop must be running before API testing.
