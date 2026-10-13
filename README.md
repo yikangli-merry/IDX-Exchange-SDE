@@ -456,6 +456,7 @@ Express checks routes in the order they are defined. If ```/:id``` is registered
 
 Every request prints one log line in the terminal with:
 ```timestamp, method, URL, status code, response time```
+
 Example:
 ```[2026-10-13T02:48:11.488Z] GET /api/properties/1178585070/openhouses 200 5.0ms```
 
