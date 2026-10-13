@@ -435,12 +435,14 @@ This returns an array of open house events from ```rets_openhouse```. An empty a
 - Database or server errors return HTTP 500.
 - Open house events are ordered by ```OpenHouseDate```, ```OH_StartTime```, and ```id```.
 Example invalid ID response:
-```{
+```
+{
   "error": "\"id\" must be a numeric listing ID."
 }
 ```
 Example missing property response:
-```{
+```
+{
   "error": "Property not found for listing ID 999999999999999."
 }
 ```
