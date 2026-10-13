@@ -418,11 +418,13 @@ backend/test/requestLogger.test.js
 
 Property detail endpoint:
 ```GET /api/properties/:id```
+
 Example:
 ```GET http://localhost:5000/api/properties/1178585070```
 This returns one full property object from rets_property.
 Open houses endpoint:
 ```GET /api/properties/:id/openhouses```
+
 Example:
 ```GET http://localhost:5000/api/properties/1178585070/openhouses```
 This returns an array of open house events from ```rets_openhouse```. An empty array is valid if the property exists but has no open house events.
