@@ -422,6 +422,7 @@ Property detail endpoint:
 Example:
 ```GET http://localhost:5000/api/properties/1178585070```
 This returns one full property object from rets_property.
+
 Open houses endpoint:
 ```GET /api/properties/:id/openhouses```
 
@@ -436,12 +437,14 @@ This returns an array of open house events from ```rets_openhouse```. An empty a
 - Unknown property IDs return HTTP 404.
 - Database or server errors return HTTP 500.
 - Open house events are ordered by ```OpenHouseDate```, ```OH_StartTime```, and ```id```.
+
 Example invalid ID response:
 ```
 {
   "error": "\"id\" must be a numeric listing ID."
 }
 ```
+
 Example missing property response:
 ```
 {
