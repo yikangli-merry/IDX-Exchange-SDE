@@ -503,3 +503,179 @@ Current test result:
 - The ```rets_property``` and ```rets_openhouse``` tables connect through ```L_ListingID```.
 - The ```all_data``` column in ```rets_openhouse``` is returned as-is and is not parsed in the backend.
 - MySQL or Docker Desktop must be running before API testing.
+
+## Week 5: React Setup & Listings Page
+
+Week 5 adds a React frontend that fetches property listings from the Express API and displays them in a responsive grid. The frontend uses Create React App and connects to the existing backend through a development proxy.
+
+### Goal
+
+- Create a React app in the `frontend/` folder.
+- Run the frontend on port `3000`.
+- Proxy `/api/*` requests to the Express server on port `5000`.
+- Display property photos, prices, addresses, city/state, beds, baths, and square footage.
+- Handle loading states, API errors, and missing photos.
+- Display the number of properties shown and the total count.
+
+### Completed Work
+
+- Created the frontend using React and Create React App.
+- Added a reusable API client for property list and detail requests.
+- Added `ListingsPage` and `PropertyCard` components.
+- Added a responsive grid with card hover effects.
+- Added loading, error, retry, and empty-result states.
+- Added defensive photo parsing and image loading fallbacks.
+- Added Jest and React Testing Library tests.
+- Verified the frontend against the local `rets` database.
+- Pushed the Week 5 code to GitHub.
+
+### Frontend Files
+
+```text
+frontend/package.json
+frontend/package-lock.json
+frontend/public/index.html
+frontend/src/index.js
+frontend/src/App.js
+frontend/src/styles.css
+frontend/src/setupTests.js
+frontend/src/api/client.js
+frontend/src/api/client.test.js
+frontend/src/components/PropertyCard.jsx
+frontend/src/components/PropertyCard.test.jsx
+frontend/src/pages/ListingsPage.jsx
+frontend/src/pages/ListingsPage.test.jsx
+frontend/src/utils/propertyPhotos.js
+frontend/src/utils/propertyPhotos.test.js
+```
+
+### API Client
+
+The API client exports:
+
+```javascript
+fetchProperties(params)
+fetchPropertyDetail(id)
+```
+
+The listings page requests:
+
+```text
+GET /api/properties?limit=20&offset=0
+```
+
+It uses the existing response shape:
+
+```json
+{
+  "total": 55212,
+  "limit": 20,
+  "offset": 0,
+  "results": []
+}
+```
+
+The page uses `results.length` and `total` to display the property count:
+
+```text
+Showing 20 of 55,212 properties
+```
+
+HTTP errors include the response status and backend error message when available. Network failures display a connection error, and the page provides a `Try again` button.
+
+### Photo Handling
+
+`L_Photos` is stored as a JSON string. The frontend parses it inside `try/catch` and displays the first photo URL.
+
+The parser handles:
+
+- Missing and null values.
+- Empty strings.
+- Malformed JSON.
+- Non-array JSON values and empty arrays.
+- Invalid first photo values or URLs.
+
+A placeholder appears when no usable photo is available or when the remote image fails to load.
+
+The local database audit found `211` properties with an empty-string `L_Photos` value. These properties display the placeholder without crashing the page.
+
+Missing property statistics display a dash. Missing or zero listing prices display `Price unavailable`, while zero bedrooms remain visible as `0`.
+
+### Run And Test
+
+If the Windows `MySQL80` service is using port `3306`, stop it from an administrator PowerShell window before starting the Docker database:
+
+```powershell
+Stop-Service MySQL80
+```
+
+Start the database:
+
+```powershell
+docker start idx-mysql-local
+```
+
+Start the backend:
+
+```powershell
+cd D:\idx_exchange\sde_project\backend
+npm install
+npm run dev
+```
+
+In another terminal, start the frontend:
+
+```powershell
+cd D:\idx_exchange\sde_project\frontend
+npm install
+npm start
+```
+
+Open:
+
+```text
+http://localhost:3000
+```
+
+Run backend tests:
+
+```powershell
+cd D:\idx_exchange\sde_project\backend
+npm test
+```
+
+Run frontend tests and create a production build:
+
+```powershell
+cd D:\idx_exchange\sde_project\frontend
+npm test -- --watchAll=false --runInBand
+npm run build
+```
+
+Verified results:
+
+```text
+Backend: 14 tests passing
+Frontend: 40 tests passing across 4 test suites
+Production build: compiled successfully
+```
+
+### Week 5 Demo Checklist
+
+1. Show the frontend running on port `3000`.
+2. Show property cards with real database photos, prices, addresses, and statistics.
+3. Show the property count above the grid.
+4. Show a placeholder for a property with no photos.
+5. Demonstrate the card hover effect and responsive layout.
+6. Stop the backend and reload the page to show the error state.
+7. Restart the backend and click `Try again` to restore the listings.
+8. Run the tests and production build.
+
+### Notes
+
+- React requests data through Express and never connects directly to MySQL.
+- The development proxy is configured at the top level of `frontend/package.json`.
+- The proxy setting only applies during local development.
+- Existing backend endpoints and database tables were reused.
+- `.env`, `node_modules/`, frontend build output, and coverage output are excluded from Git.
+- Search controls, pagination controls, and the property detail page are reserved for later weeks.
