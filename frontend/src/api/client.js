@@ -37,8 +37,9 @@ export async function fetchProperties(params = {}, options = {}) {
   const query = new URLSearchParams();
 
   Object.entries(params).forEach(([name, value]) => {
-    if (value !== undefined && value !== null && value !== "") {
-      query.set(name, String(value));
+    const normalized = typeof value === "string" ? value.trim() : value;
+    if (normalized !== undefined && normalized !== null && normalized !== "") {
+      query.set(name, String(normalized));
     }
   });
 

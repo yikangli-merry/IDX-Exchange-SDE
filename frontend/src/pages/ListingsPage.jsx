@@ -1,44 +1,54 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { fetchProperties } from "../api/client";
 import PropertyCard from "../components/PropertyCard";
+import PropertyFilters from "../components/PropertyFilters";
 
 export default function ListingsPage() {
   const [properties, setProperties] = useState([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [attempt, setAttempt] = useState(0);
+  const requestSequence = useRef(0);
+  const activeController = useRef(null);
+  const appliedFilters = useRef({});
 
-  useEffect(() => {
+  const loadProperties = useCallback(async (filters) => {
+    // Invalidate synchronously, before another request or React state update can finish.
+    const requestId = ++requestSequence.current;
+    activeController.current?.abort();
     const controller = new AbortController();
-    let active = true;
+    activeController.current = controller;
+    appliedFilters.current = { ...filters };
+    const isCurrent = () => requestId === requestSequence.current && !controller.signal.aborted;
 
     setLoading(true);
     setError("");
 
-    fetchProperties({ limit: 20, offset: 0 }, { signal: controller.signal })
-      .then((payload) => {
-        if (active) {
-          setProperties(payload.results);
-          setTotal(payload.total);
-        }
-      })
-      .catch((requestError) => {
-        if (active && requestError.name !== "AbortError") {
-          setError(requestError.message || "Unable to load properties. Please try again.");
-        }
-      })
-      .finally(() => {
-        if (active) {
-          setLoading(false);
-        }
-      });
+    try {
+      const payload = await fetchProperties({ ...filters, limit: 20, offset: 0 }, { signal: controller.signal });
+      if (isCurrent()) {
+        setProperties(payload.results);
+        setTotal(payload.total);
+      }
+    } catch (requestError) {
+      if (isCurrent() && requestError.name !== "AbortError") {
+        setError(requestError.message || "Unable to load properties. Please try again.");
+      }
+    } finally {
+      if (isCurrent()) {
+        setLoading(false);
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    loadProperties({});
 
     return () => {
-      active = false;
-      controller.abort();
+      requestSequence.current += 1;
+      activeController.current?.abort();
     };
-  }, [attempt]);
+  }, [loadProperties]);
 
   return (
     <main className="listings-page">
@@ -47,6 +57,8 @@ export default function ListingsPage() {
         <h1 id="page-title">Find a place to <em>call home.</em></h1>
         <p className="page-description">A new perspective. A fresh start. Explore homes and find the space for your next chapter.</p>
       </section>
+
+      <PropertyFilters onSearch={loadProperties} onClear={() => loadProperties({})} />
 
       <section className="listings-section" aria-labelledby="listings-title" aria-busy={loading}>
         <div className="listings-toolbar">
@@ -67,12 +79,12 @@ export default function ListingsPage() {
             <span className="state-icon" aria-hidden="true">!</span>
             <h3>We couldn't load the properties</h3>
             <p>{error}</p>
-            <button type="button" className="retry-button" onClick={() => setAttempt((value) => value + 1)}>Try again <span aria-hidden="true">&rarr;</span></button>
+            <button type="button" className="retry-button" onClick={() => loadProperties(appliedFilters.current)}>Try again <span aria-hidden="true">&rarr;</span></button>
           </div>
         ) : properties.length === 0 ? (
           <div className="state-panel" role="status">
             <h3>No properties found</h3>
-            <p>There are no listings to show right now. Please check back soon.</p>
+            <p>Try adjusting your filters or clearing them to see more properties.</p>
           </div>
         ) : (
           <div className="property-grid">

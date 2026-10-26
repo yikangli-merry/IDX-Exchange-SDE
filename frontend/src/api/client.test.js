@@ -30,6 +30,30 @@ test("fetches property detail with an encoded listing ID", async () => {
   expect(fetch).toHaveBeenCalledWith("/api/properties/123", { signal: undefined });
 });
 
+test("combines all six filters and trims text before encoding the URL", async () => {
+  fetch.mockResolvedValue({ ok: true, json: async () => listPayload });
+  await fetchProperties({ city: "  Beverly Hills  ", zipcode: " 09261 ", minPrice: "300000", maxPrice: "1500000", beds: "3", baths: "2.5", limit: 20, offset: 0 });
+  const url = new URL(fetch.mock.calls[0][0], "http://localhost");
+  expect(Object.fromEntries(url.searchParams)).toEqual({ city: "Beverly Hills", zipcode: "09261", minPrice: "300000", maxPrice: "1500000", beds: "3", baths: "2.5", limit: "20", offset: "0" });
+});
+
+test("omits empty, whitespace-only, null, and undefined filter values", async () => {
+  fetch.mockResolvedValue({ ok: true, json: async () => listPayload });
+  await fetchProperties({ city: " \t ", zipcode: "", minPrice: null, maxPrice: undefined, beds: " ", baths: "\n", limit: 20, offset: 0 });
+  expect(fetch).toHaveBeenCalledWith("/api/properties?limit=20&offset=0", { signal: undefined });
+});
+
+test("preserves both numeric and string zero values", async () => {
+  fetch.mockResolvedValue({ ok: true, json: async () => listPayload });
+  await fetchProperties({ minPrice: 0, maxPrice: " 0 ", beds: "0", baths: 0, offset: 0 });
+  expect(fetch).toHaveBeenCalledWith("/api/properties?minPrice=0&maxPrice=0&beds=0&baths=0&offset=0", { signal: undefined });
+});
+
+test("preserves the backend validation message for an invalid filter request", async () => {
+  fetch.mockResolvedValue({ ok: false, status: 400, json: async () => ({ error: '"minPrice" must be less than or equal to "maxPrice".' }) });
+  await expect(fetchProperties({ minPrice: 900000, maxPrice: 300000 })).rejects.toThrow('"minPrice" must be less than or equal to "maxPrice". (HTTP 400)');
+});
+
 test("includes the backend message and HTTP status in errors", async () => {
   fetch.mockResolvedValue({ ok: false, status: 500, json: async () => ({ error: "Failed to search properties." }) });
   await expect(fetchProperties()).rejects.toThrow("Failed to search properties. (HTTP 500)");

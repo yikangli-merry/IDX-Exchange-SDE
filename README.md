@@ -421,6 +421,7 @@ Property detail endpoint:
 
 Example:
 ```GET http://localhost:5000/api/properties/1178585070```
+
 This returns one full property object from rets_property.
 
 Open houses endpoint:
@@ -428,6 +429,7 @@ Open houses endpoint:
 
 Example:
 ```GET http://localhost:5000/api/properties/1178585070/openhouses```
+
 This returns an array of open house events from ```rets_openhouse```. An empty array is valid if the property exists but has no open house events.
 
 ### Validation And Error Handling
@@ -679,3 +681,239 @@ Production build: compiled successfully
 - Existing backend endpoints and database tables were reused.
 - `.env`, `node_modules/`, frontend build output, and coverage output are excluded from Git.
 - Search controls, pagination controls, and the property detail page are reserved for later weeks.
+
+## Week 6: Filters UI + Introduction to Testing
+
+Week 6 adds a filter form to the property listings page and expands the frontend unit tests. The work reuses the existing property search API and supports combined filters, clearing searches, and safe handling of overlapping requests.
+
+### Goal
+
+- Add a `PropertyFilters` component with six controlled inputs.
+- Search by city, ZIP code, price range, bedrooms, and bathrooms.
+- Combine multiple filters in one request.
+- Clear the form and reload the unfiltered listings.
+- Omit empty filter values from API requests.
+- Prevent outdated requests from replacing the latest results.
+- Write unit tests for the API client and filter component.
+
+### Completed Work
+
+- Added all six filter inputs using one React state object.
+- Integrated Search and Clear Filters with `ListingsPage`.
+- Added responsive form styles for desktop, tablet, and mobile layouts.
+- Added price range validation and preserved leading zeros in ZIP codes.
+- Trimmed text values and removed empty query parameters.
+- Preserved valid zero values in API requests.
+- Improved the empty-result message with guidance to adjust or clear filters.
+- Added request cancellation and sequence IDs to prevent stale updates.
+- Kept retries tied to the last submitted filters, including after draft edits.
+- Expanded API client tests and added filter component tests.
+- Added regression tests for overlapping searches, clearing, and React StrictMode.
+- Verified the API against the existing property database through the frontend proxy.
+
+### Frontend Files
+
+New files:
+
+```text
+frontend/src/components/PropertyFilters.jsx
+frontend/src/components/PropertyFilters.test.jsx
+```
+
+Updated files:
+
+```text
+frontend/src/pages/ListingsPage.jsx
+frontend/src/pages/ListingsPage.test.jsx
+frontend/src/api/client.js
+frontend/src/api/client.test.js
+frontend/src/styles.css
+README.md
+```
+
+### Filter Form
+
+| Input | API Parameter | Behavior |
+| --- | --- | --- |
+| City | `city` | Case-insensitive city matching |
+| ZIP Code | `zipcode` | Text input that preserves leading zeros |
+| Min Price | `minPrice` | Inclusive, non-negative minimum price |
+| Max Price | `maxPrice` | Inclusive, non-negative maximum price |
+| Beds | `beds` | Exact matching; Any or 0 through 10 |
+| Baths | `baths` | Exact matching; Any or 0 through 10 in increments of 0.5 |
+
+All six values are stored in one React state object. Typing updates the draft form; clicking Search submits a snapshot and loads matching properties.
+
+The form rejects a minimum price greater than the maximum price. Clear Filters resets all six inputs, clears validation messages, and reloads the first page without search filters.
+
+Search and Clear Filters remain available while requests are loading. Try again repeats the last submitted search, even if the user has since edited the draft form.
+
+### API Requests
+
+The existing endpoint is reused:
+
+```text
+GET /api/properties
+```
+
+Supported filter parameters:
+
+```text
+city, zipcode, minPrice, maxPrice, beds, baths
+```
+
+Example request combining all six filters:
+
+```text
+GET /api/properties?city=Beverly+Hills&zipcode=90210&minPrice=3950000&maxPrice=3950000&beds=4&baths=5&limit=20&offset=0
+```
+
+Clearing filters requests:
+
+```text
+GET /api/properties?limit=20&offset=0
+```
+
+Empty strings, whitespace-only strings, `null`, and `undefined` values are omitted. Valid numeric and string zero values remain in the request.
+
+The response shape remains unchanged:
+
+```json
+{
+  "total": 0,
+  "limit": 20,
+  "offset": 0,
+  "results": []
+}
+```
+
+The example shows an empty search result. Matching searches return property objects inside `results` and the corresponding total count.
+
+### Debug Challenge: Outdated Search Results
+
+Requests can finish in a different order from the order in which they were started. Without protection, an older search or clear request could replace newer results, display an outdated error, or finish the loading state too early. Reading state immediately after `setState` can also use the previous filter values.
+
+The fix:
+
+- Pass an explicit filter snapshot to each request.
+- Invalidate the previous request synchronously using a sequence ID.
+- Cancel the previous request with `AbortController`.
+- Allow only the latest request to update results, count, errors, and loading.
+- Invalidate and cancel active requests when the page unmounts.
+- Request empty filters directly when Clear Filters is clicked.
+
+Regression tests control request completion order and verify stale success and error responses both before and after the latest search finishes. The mock requests intentionally ignore cancellation so the sequence guard is tested independently.
+
+### Unit Testing And Mocking
+
+A unit test checks a small piece of behavior in isolation, such as query parameter handling or form submission.
+
+Mocking replaces a dependency with a controlled test version. API client tests use `jest.fn()` to mock `global.fetch`.
+
+Mocking `fetch()` lets tests:
+
+- Run without starting Express or MySQL.
+- Inspect the request URL and abort signal.
+- Return predictable property data.
+- Simulate HTTP errors, network failures, and cancellation.
+
+Component tests use Jest and React Testing Library to check rendered controls and user interactions. Listings page tests mock the API client and use deferred promises to reproduce request races reliably.
+
+### Run And Test
+
+Start Docker Desktop, then start the database:
+
+```powershell
+docker start idx-mysql-local
+```
+
+If Windows `MySQL80` occupies port `3306`, stop it from an administrator PowerShell window before starting the Docker database:
+
+```powershell
+Stop-Service MySQL80
+```
+
+Start the backend:
+
+```powershell
+cd D:\idx_exchange\sde_project\backend
+npm run dev
+```
+
+In another terminal, start the frontend:
+
+```powershell
+cd D:\idx_exchange\sde_project\frontend
+npm start
+```
+
+Open:
+
+```text
+http://localhost:3000
+```
+
+Run backend tests:
+
+```powershell
+cd D:\idx_exchange\sde_project\backend
+npm test
+```
+
+Run frontend tests and create a production build:
+
+```powershell
+cd D:\idx_exchange\sde_project\frontend
+npm test -- --watchAll=false --runInBand
+npm run build
+```
+
+Verified results:
+
+```text
+Backend: 14 tests passing
+Frontend: 60 tests passing across 5 test suites
+API client: 16 tests passing
+PropertyFilters: 7 tests passing
+ListingsPage: 13 tests passing
+Production build: compiled successfully
+Real database: 64 filter presence/absence combinations matched independent SQL checks
+Additional API checks: empty results, zero values, and invalid price ranges passed
+Browser checks: search, clear, validation, empty results, error recovery, and rapid search sequences passed
+Responsive checks: 390px, 800px, and 1280px layouts passed without horizontal overflow
+```
+
+Database verification used an isolated copy of the existing 55,212-row database on port `3307` because the Windows MySQL service occupied port `3306`. The backend used a process-only `DB_PORT` override; the original database, `.env`, and default configuration were preserved. Temporary verification services and the copied database were removed after testing.
+
+### Week 6 Demo Checklist
+
+1. Show all six filter inputs.
+2. Search by city and ZIP code.
+3. Search using price, beds, and baths.
+4. Combine multiple filters in one request.
+5. Confirm empty filters are absent from the request URL.
+6. Clear the form and restore the unfiltered first page.
+7. Show the helpful message when no properties match.
+8. Quickly search, clear, and search again without stale results.
+9. Run all tests and the production build.
+10. Explain unit tests, mocking, and why `fetch()` is mocked.
+
+### Week 6 Checkpoint
+
+- [x] Filter combinations return matching results.
+- [x] Clear Filters works correctly in repeated search sequences.
+- [x] Empty filter values are not sent to the API.
+- [x] API client tests cover success and error paths.
+- [x] The filter component has at least three unit tests.
+- [x] All tests pass.
+- [x] The production build succeeds.
+- [x] Local files and GitHub are synchronized.
+
+### Notes
+
+- Search uses the existing backend endpoint and database tables.
+- Beds and baths use exact matching.
+- Requests continue to use `limit=20` and `offset=0`.
+- Pagination controls and property detail pages remain future work.
+- Unit tests use mocks and do not require a running database.
+- Manual API verification requires Docker, MySQL, and Express.
