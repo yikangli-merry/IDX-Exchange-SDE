@@ -4,9 +4,17 @@ import { fetchProperties } from "../api/client";
 import ListingsPage from "./ListingsPage";
 
 jest.mock("../api/client");
+jest.mock("../components/PropertyCard", () => function MockPropertyCard({ property }) {
+  return <article><h3>{property.L_Address}</h3></article>;
+});
 
 beforeEach(() => {
   fetchProperties.mockReset();
+  jest.spyOn(window, "scrollTo").mockImplementation(() => {});
+});
+
+afterEach(() => {
+  jest.restoreAllMocks();
 });
 
 const payload = {
@@ -21,10 +29,12 @@ test("shows loading until the request finishes, then shows actual count and card
   fetchProperties.mockReturnValue(new Promise((resolve) => { resolveRequest = resolve; }));
   render(<ListingsPage />);
   expect(screen.getByText("Loading properties...")).toBeInTheDocument();
+  expect(screen.queryByRole("navigation", { name: "Property pagination" })).not.toBeInTheDocument();
   expect(fetchProperties).toHaveBeenCalledWith({ limit: 20, offset: 0 }, { signal: expect.any(AbortSignal) });
   await act(async () => resolveRequest(payload));
   expect(screen.getByRole("heading", { name: "123 Main Street" })).toBeInTheDocument();
-  expect(screen.getByRole("status")).toHaveTextContent("Showing 1 of 487 properties");
+  expect(screen.getByRole("status")).toHaveTextContent("Showing 1–1 of 487 properties");
+  expect(window.scrollTo).not.toHaveBeenCalled();
   expect(screen.queryByText("Loading properties...")).not.toBeInTheDocument();
 });
 
@@ -32,7 +42,8 @@ test("shows a useful empty result state", async () => {
   fetchProperties.mockResolvedValue({ total: 0, results: [] });
   render(<ListingsPage />);
   expect(await screen.findByText("No properties found")).toBeInTheDocument();
-  expect(screen.getByText(/Showing/)).toHaveTextContent("Showing 0 of 0 properties");
+  expect(screen.getByText(/Showing/)).toHaveTextContent("Showing 0–0 of 0 properties");
+  expect(screen.queryByRole("navigation", { name: "Property pagination" })).not.toBeInTheDocument();
   expect(screen.getByText("Try adjusting your filters or clearing them to see more properties.")).toBeInTheDocument();
 });
 
@@ -65,7 +76,7 @@ test("submits all six filters only after Search and replaces the list and count"
   expect(fetchProperties).toHaveBeenLastCalledWith({ city: "Irvine", zipcode: "09261", minPrice: "300000", maxPrice: "1500000", beds: "3", baths: "2.5", limit: 20, offset: 0 }, { signal: expect.any(AbortSignal) });
   await screen.findByRole("heading", { name: "Filtered home" });
   expect(screen.queryByRole("heading", { name: "123 Main Street" })).not.toBeInTheDocument();
-  expect(screen.getByRole("status")).toHaveTextContent("Showing 1 of 2 properties");
+  expect(screen.getByRole("status")).toHaveTextContent("Showing 1–1 of 2 properties");
 });
 
 test("clears the form and reloads the unfiltered first page even when already empty", async () => {
@@ -152,7 +163,7 @@ test.each([
     await settleOldRequests();
   }
   expect(screen.getByRole("heading", { name: "Latest Pasadena home" })).toBeInTheDocument();
-  expect(screen.getByRole("status")).toHaveTextContent("Showing 1 of 7 properties");
+  expect(screen.getByRole("status")).toHaveTextContent("Showing 1–1 of 7 properties");
   expect(screen.queryByRole("heading", { name: "Outdated home" })).not.toBeInTheDocument();
   expect(screen.queryByRole("heading", { name: "123 Main Street" })).not.toBeInTheDocument();
   expect(screen.queryByRole("alert")).not.toBeInTheDocument();
@@ -190,3 +201,158 @@ test("aborts the request when the page unmounts", async () => {
   unmount();
   await waitFor(() => expect(signal.aborted).toBe(true));
 });
+
+function pagePayload(page, total = 487) {
+  const offset = (page - 1) * 20;
+  return {
+    total,
+    limit: 20,
+    offset,
+    results: Array.from({ length: Math.min(20, Math.max(0, total - offset)) }, (_, index) => ({
+      id: offset + index + 1,
+      L_Address: `Home ${offset + index + 1}`,
+    })),
+  };
+}
+
+test("navigates with Next, Previous, and page numbers and counts a partial last page", async () => {
+  fetchProperties.mockImplementation(({ offset }) => Promise.resolve(pagePayload(offset / 20 + 1)));
+  render(<ListingsPage />);
+  await screen.findByRole("heading", { name: "Home 1", exact: true });
+  expect(screen.getByRole("status")).toHaveTextContent("Showing 1–20 of 487 properties");
+  expect(screen.getByRole("button", { name: "Previous" })).toBeDisabled();
+
+  for (const [button, page, first, last] of [["Next", 2, 21, 40], ["Previous", 1, 1, 20], ["Page 5", 5, 81, 100], ["Page 25", 25, 481, 487]]) {
+    fireEvent.click(screen.getByRole("button", { name: button, exact: true }));
+    expect(fetchProperties).toHaveBeenLastCalledWith({ limit: 20, offset: (page - 1) * 20 }, { signal: expect.any(AbortSignal) });
+    expect(screen.queryByRole("navigation", { name: "Property pagination" })).not.toBeInTheDocument();
+    await screen.findByRole("heading", { name: `Home ${first}`, exact: true });
+    expect(screen.getByRole("status")).toHaveTextContent(`Showing ${first}–${last} of 487 properties`);
+    expect(screen.getByRole("button", { name: `Page ${page}`, current: "page" })).toBeInTheDocument();
+  }
+
+  expect(screen.getByRole("button", { name: "Next" })).toBeDisabled();
+  expect(window.scrollTo.mock.calls).toEqual([[0, 0], [0, 0], [0, 0], [0, 0]]);
+});
+
+test.each([1, 20])("hides pagination when all %s results fit on one page", async (total) => {
+  fetchProperties.mockResolvedValue(pagePayload(1, total));
+  render(<ListingsPage />);
+  await screen.findByRole("heading", { name: "Home 1", exact: true });
+  expect(screen.getByRole("status")).toHaveTextContent(`Showing 1–${total} of ${total} properties`);
+  expect(screen.queryByRole("navigation", { name: "Property pagination" })).not.toBeInTheDocument();
+});
+
+test("does not fetch or scroll when the current page or disabled Previous is clicked", async () => {
+  fetchProperties.mockResolvedValue(pagePayload(1));
+  render(<ListingsPage />);
+  await screen.findByRole("heading", { name: "Home 1", exact: true });
+  fireEvent.click(screen.getByRole("button", { name: "Page 1", exact: true }));
+  fireEvent.click(screen.getByRole("button", { name: "Previous" }));
+  expect(fetchProperties).toHaveBeenCalledTimes(1);
+  expect(window.scrollTo).not.toHaveBeenCalled();
+});
+
+test("preserves all submitted filters on the next page while ignoring draft edits", async () => {
+  fetchProperties.mockImplementation(({ offset }) => Promise.resolve(pagePayload(offset / 20 + 1, 60)));
+  render(<ListingsPage />);
+  await screen.findByRole("heading", { name: "Home 1", exact: true });
+  const filters = { city: "Irvine", zipcode: "09261", minPrice: "300000", maxPrice: "1500000", beds: "3", baths: "2.5" };
+  const labels = { city: "City", zipcode: "ZIP Code", minPrice: "Min Price", maxPrice: "Max Price", beds: "Beds", baths: "Baths" };
+  Object.entries(filters).forEach(([key, value]) => fireEvent.change(screen.getByLabelText(labels[key]), { target: { value } }));
+  fireEvent.click(screen.getByRole("button", { name: "Search" }));
+  await screen.findByRole("heading", { name: "Home 1", exact: true });
+  fireEvent.change(screen.getByLabelText("City"), { target: { value: "Pasadena" } });
+  expect(fetchProperties).toHaveBeenCalledTimes(2);
+  fireEvent.click(screen.getByRole("button", { name: "Next" }));
+  expect(fetchProperties).toHaveBeenLastCalledWith({ ...filters, limit: 20, offset: 20 }, { signal: expect.any(AbortSignal) });
+  await screen.findByRole("heading", { name: "Home 21", exact: true });
+  expect(screen.getByLabelText("City")).toHaveValue("Pasadena");
+  expect(screen.getByRole("status")).toHaveTextContent("Showing 21–40 of 60 properties");
+});
+
+test.each(["Search", "Clear Filters"])("%s resets a filtered later page to page one", async (action) => {
+  fetchProperties.mockImplementation(({ offset, city }) => Promise.resolve(pagePayload(offset / 20 + 1, city ? 60 : 487)));
+  render(<ListingsPage />);
+  await screen.findByRole("heading", { name: "Home 1", exact: true });
+  searchCity("Irvine");
+  await screen.findByRole("heading", { name: "Home 1", exact: true });
+  fireEvent.click(screen.getByRole("button", { name: "Next" }));
+  await screen.findByRole("heading", { name: "Home 21", exact: true });
+  fireEvent.change(screen.getByLabelText("City"), { target: { value: "Pasadena" } });
+  fireEvent.click(screen.getByRole("button", { name: action }));
+  const filters = action === "Search" ? { ...emptyFilters, city: "Pasadena" } : {};
+  expect(fetchProperties).toHaveBeenLastCalledWith({ ...filters, limit: 20, offset: 0 }, { signal: expect.any(AbortSignal) });
+  await screen.findByRole("heading", { name: "Home 1", exact: true });
+  expect(screen.getByRole("button", { name: "Page 1", current: "page" })).toBeInTheDocument();
+  expect(screen.getByRole("status")).toHaveTextContent(`Showing 1–20 of ${action === "Search" ? 60 : 487} properties`);
+  expect(screen.getByLabelText("City")).toHaveValue(action === "Search" ? "Pasadena" : "");
+  expect(window.scrollTo.mock.calls).toEqual([[0, 0], [0, 0]]);
+});
+
+test("retries the failed page with its submitted filters and hides stale pagination and counts", async () => {
+  const retry = deferred();
+  fetchProperties.mockResolvedValueOnce(pagePayload(1))
+    .mockResolvedValueOnce(pagePayload(1, 60))
+    .mockRejectedValueOnce(new Error("Page unavailable"))
+    .mockReturnValueOnce(retry.promise);
+  render(<ListingsPage />);
+  await screen.findByRole("heading", { name: "Home 1", exact: true });
+  searchCity("Irvine");
+  await screen.findByRole("heading", { name: "Home 1", exact: true });
+  fireEvent.click(screen.getByRole("button", { name: "Next" }));
+  expect(await screen.findByRole("alert")).toHaveTextContent("Page unavailable");
+  expect(screen.queryByRole("navigation", { name: "Property pagination" })).not.toBeInTheDocument();
+  expect(screen.queryByText(/Showing/)).not.toBeInTheDocument();
+  fireEvent.change(screen.getByLabelText("City"), { target: { value: "Pasadena" } });
+  fireEvent.click(screen.getByRole("button", { name: /Try again/ }));
+  expect(fetchProperties).toHaveBeenLastCalledWith({ ...emptyFilters, city: "Irvine", limit: 20, offset: 20 }, { signal: expect.any(AbortSignal) });
+  expect(screen.getByText("Loading properties...")).toBeInTheDocument();
+  expect(screen.queryByRole("navigation", { name: "Property pagination" })).not.toBeInTheDocument();
+  await act(async () => retry.resolve(pagePayload(2, 60)));
+  expect(screen.getByRole("status")).toHaveTextContent("Showing 21–40 of 60 properties");
+  expect(screen.getByRole("button", { name: "Page 2", current: "page" })).toBeInTheDocument();
+  expect(window.scrollTo).toHaveBeenCalledTimes(1);
+});
+
+test.each([["success", "before"], ["error", "before"], ["success", "after"], ["error", "after"]])(
+  "ignores an old page request's %s %s a new filter search completes",
+  async (outcome, timing) => {
+    const oldPage = deferred();
+    const newSearch = deferred();
+    fetchProperties.mockResolvedValueOnce(pagePayload(1))
+      .mockReturnValueOnce(oldPage.promise)
+      .mockReturnValueOnce(newSearch.promise);
+    render(<ListingsPage />);
+    await screen.findByRole("heading", { name: "Home 1", exact: true });
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    const oldSignal = fetchProperties.mock.calls[1][1].signal;
+    searchCity("Irvine");
+    expect(oldSignal.aborted).toBe(true);
+    expect(fetchProperties).toHaveBeenLastCalledWith({ ...emptyFilters, city: "Irvine", limit: 20, offset: 0 }, { signal: expect.any(AbortSignal) });
+
+    async function settleOldPage() {
+      await act(async () => {
+        if (outcome === "success") {
+          oldPage.resolve(pagePayload(2));
+        } else {
+          oldPage.reject(new Error("Outdated page error"));
+        }
+      });
+    }
+
+    if (timing === "before") {
+      await settleOldPage();
+      expect(screen.getByText("Loading properties...")).toBeInTheDocument();
+      expect(screen.queryByRole("navigation", { name: "Property pagination" })).not.toBeInTheDocument();
+    }
+    await act(async () => newSearch.resolve(pagePayload(1, 3)));
+    if (timing === "after") {
+      await settleOldPage();
+    }
+    expect(screen.getByRole("status")).toHaveTextContent("Showing 1–3 of 3 properties");
+    expect(screen.queryByRole("heading", { name: "Home 21", exact: true })).not.toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(screen.queryByRole("navigation", { name: "Property pagination" })).not.toBeInTheDocument();
+  },
+);

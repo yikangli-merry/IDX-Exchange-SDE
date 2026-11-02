@@ -48,6 +48,14 @@ h1 em { color: #406c53; font-family: Georgia, "Times New Roman", serif; font-wei
 .property-count { margin: 0; color: #7a827c; font-size: 12px; }
 .property-count strong { color: #495a4f; font-weight: 600; }
 .property-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 28px; }
+.pagination { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 12px; margin-top: 36px; }
+.pagination-pages { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 6px; }
+.pagination-button { display: inline-flex; align-items: center; justify-content: center; min-width: 42px; min-height: 42px; padding: 10px; border: 1px solid #dfe5da; border-radius: 6px; background: #fff; color: #495a4f; cursor: pointer; font-size: 12px; }
+.pagination-direction { padding-inline: 16px; }
+.pagination-button:hover:not(:disabled) { background: #f1f5ed; border-color: #b9c8b7; }
+.pagination-button[aria-current="page"], .pagination-button[aria-current="page"]:hover { background: #173e38; border-color: #173e38; color: #fff; font-weight: 600; }
+.pagination-button:disabled { color: #9aa297; background: #f4f6f0; cursor: default; }
+.pagination-ellipsis { display: inline-flex; min-width: 18px; align-items: center; justify-content: center; color: #727c75; }
 .property-card { overflow: hidden; border: 1px solid #e1e5dd; border-radius: 12px; background: #fff; box-shadow: 0 2px 5px #1f382305; transition: transform .2s ease, box-shadow .2s ease, border-color .2s ease; }
 .property-card:hover { transform: translateY(-5px); border-color: #b9c8b7; box-shadow: 0 14px 30px #213c3012; }
 .property-image-wrap { position: relative; aspect-ratio: 1.6; overflow: hidden; background: #eaf0e6; }
@@ -83,6 +91,10 @@ h1 em { color: #406c53; font-family: Georgia, "Times New Roman", serif; font-wei
 }
 
 @media (max-width: 600px) {
+  .pagination { gap: 12px 8px; margin-top: 28px; }
+  .pagination-pages { order: -1; width: 100%; gap: 4px; }
+  .pagination-button { min-width: 38px; padding-inline: 8px; }
+  .pagination-direction { min-width: 100px; }
   .filters-section { padding: 20px; margin-bottom: 28px; }
   .filters-heading, .filter-actions { flex-direction: column; align-items: stretch; gap: 12px; }
   .filter-fields { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px 12px; }
