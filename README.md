@@ -917,3 +917,261 @@ Database verification used an isolated copy of the existing 55,212-row database 
 - Pagination controls and property detail pages remain future work.
 - Unit tests use mocks and do not require a running database.
 - Manual API verification requires Docker, MySQL, and Express.
+
+## Week 7: Pagination UI & Component Testing
+
+Week 7 adds reusable pagination controls to the property listings page and expands component tests. Pagination reuses the existing property search API and preserves submitted filters between pages.
+
+### Goal
+
+- Maintain `currentPage` and `itemsPerPage` in `ListingsPage`.
+- Display Previous, Next, numbered pages, and ellipses.
+- Preserve submitted filters when changing pages.
+- Reset to page 1 when searching or clearing filters.
+- Scroll to the top when the page changes.
+- Display the current result range and total count.
+- Test pagination boundaries and filter interactions.
+
+### Completed Work
+
+- Added a reusable `Pagination` component.
+- Fixed the page size at 20 properties.
+- Connected page changes to the existing `limit` and `offset` parameters.
+- Added current-page highlighting and accessible button labels.
+- Disabled Previous on the first page and Next on the last page.
+- Hid pagination for empty results, single-page results, loading, and errors.
+- Added ellipses for large page counts.
+- Prevented duplicate first and last page numbers.
+- Updated the results summary to show the displayed range.
+- Preserved submitted filters independently of draft form edits.
+- Kept retries tied to the failed request's filters and page.
+- Preserved request cancellation and protection against stale responses.
+- Added responsive pagination styles and regression tests.
+
+### Frontend Files
+
+New files:
+
+```text
+frontend/src/components/Pagination.jsx
+frontend/src/components/Pagination.test.jsx
+```
+
+Updated files:
+
+```text
+frontend/src/pages/ListingsPage.jsx
+frontend/src/pages/ListingsPage.test.jsx
+frontend/src/styles.css
+```
+
+### Pagination Component
+
+Component interface:
+
+```jsx
+<Pagination
+  currentPage={currentPage}
+  totalPages={totalPages}
+  onPageChange={handlePageChange}
+/>
+```
+
+Pagination appears below the property grid.
+
+- Previous is disabled on page 1.
+- Next is disabled on the last page.
+- Clicking a numbered button requests that page.
+- Clicking the current page does not repeat the request.
+- The selected page uses `aria-current="page"`.
+- Ellipses are non-interactive.
+- Pagination is hidden when there is no more than one page.
+
+For up to seven pages, all page numbers are displayed. Larger ranges use a window around the current page.
+
+Examples with 24 total pages:
+
+```text
+Near the start:  1 2 3 4 5 … 24
+In the middle:  1 … 4 5 6 … 24
+Near the end:   1 … 20 21 22 23 24
+```
+
+The first and last page numbers each appear exactly once.
+
+### API Requests And Results Summary
+
+The existing endpoint is reused:
+
+```text
+GET /api/properties
+```
+
+Pagination calculations:
+
+```javascript
+limit = itemsPerPage;
+offset = (currentPage - 1) * itemsPerPage;
+totalPages = Math.ceil(total / itemsPerPage);
+```
+
+Examples:
+
+```text
+Page 1: GET /api/properties?limit=20&offset=0
+Page 2: GET /api/properties?limit=20&offset=20
+Page 3: GET /api/properties?limit=20&offset=40
+```
+
+Filtered page 2:
+
+```text
+GET /api/properties?city=Irvine&limit=20&offset=20
+```
+
+The response shape remains unchanged:
+
+```json
+{
+  "total": 487,
+  "limit": 20,
+  "offset": 20,
+  "results": []
+}
+```
+
+The results summary uses the requested offset and actual number of returned properties:
+
+```text
+First page:   Showing 1–20 of 487 properties
+Second page:  Showing 21–40 of 487 properties
+Last page:    Showing 481–487 of 487 properties
+Empty result: Showing 0–0 of 0 properties
+```
+
+The summary is hidden during loading and errors.
+
+### Filters, Scrolling, And Retry Behavior
+
+Typing changes the draft filter form. Clicking Search submits the filters and requests page 1.
+
+Changing pages uses the last submitted filters, even if the user has edited the draft form. Clear Filters resets the form and requests the unfiltered first page.
+
+Actual page changes call:
+
+```javascript
+window.scrollTo(0, 0);
+```
+
+The initial load and repeated clicks on the current page do not trigger scrolling.
+
+Try again repeats the failed request's page and submitted filters. New requests cancel previous requests, and sequence IDs prevent stale results, errors, or loading updates from replacing the latest search.
+
+### Debug Challenge: Duplicate Page Numbers
+
+A naive page-number implementation can append a boundary page that is already present in the visible range, producing duplicate first or last page numbers.
+
+The implementation handles three separate large-range cases:
+
+- Near the start: the first five pages and the last page.
+- In the middle: the first page, the current page and its neighbors, and the last page.
+- Near the end: the first page and the last five pages.
+
+Regression tests cover ranges of 8, 24, and 2,761 pages. They verify that:
+
+- Page 1 appears exactly once.
+- The last page appears exactly once.
+- The current page is present.
+- Numbers remain strictly increasing.
+- No page number is outside the valid range.
+
+### Component Testing
+
+Tests use Jest and React Testing Library.
+
+`Pagination` tests use `fireEvent.click()` to verify numbered buttons, Previous, Next, disabled boundaries, current-page behavior, and ellipsis rendering.
+
+`ListingsPage` tests mock the API client and verify request parameters, result ranges, scrolling, filter resets, retry behavior, and stale-response protection.
+
+The listings tests mock `PropertyCard` to focus on page behavior. The existing dedicated `PropertyCard` tests remain in the full test suite.
+
+### Run And Test
+
+Start the backend with a reachable database and valid credentials:
+
+```powershell
+cd D:\idx_exchange\sde_project\backend
+npm.cmd run dev
+```
+
+In another terminal, start the frontend:
+
+```powershell
+cd D:\idx_exchange\sde_project\frontend
+npm.cmd start
+```
+
+Open:
+
+```text
+http://localhost:3000
+```
+
+Run backend tests:
+
+```powershell
+cd D:\idx_exchange\sde_project\backend
+npm.cmd test
+```
+
+Run frontend tests and create a production build:
+
+```powershell
+cd D:\idx_exchange\sde_project\frontend
+npm.cmd test -- --watchAll=false --runInBand
+npm.cmd run build
+```
+
+Verified results:
+
+```text
+Backend: 14 tests passing
+Frontend: 86 tests passing across 6 test suites
+Pagination: 14 tests passing
+ListingsPage: 25 tests passing
+Production build: compiled successfully
+Browser checks: pagination, filters, empty results, single-page results, scrolling, and same-page retry passed
+Responsive checks: 390px, 800px, and 1280px layouts passed without horizontal overflow
+```
+
+Browser verification used a temporary local server with deterministic API fixtures. The fixtures included 55,212 results, filtered results, a partial final page, empty results, and a temporary page failure.
+
+Live database integration was not rerun because the configured credentials were rejected by the running MySQL instance. No database or environment configuration was changed. The temporary verification server was stopped after testing.
+
+### Week 7 Demo Checklist
+
+1. Show pagination below the property grid.
+2. Show Previous disabled on page 1.
+3. Navigate using Next, Previous, and numbered buttons.
+4. Show ellipses on a large page range.
+5. Visit the last page and show Next disabled.
+6. Confirm boundary page numbers do not repeat.
+7. Show the correct results range on a partial last page.
+8. Apply filters, change pages, and confirm the filters remain active.
+9. Search or clear filters from a later page and return to page 1.
+10. Show pagination hidden for single-page and empty results.
+11. Demonstrate scrolling to the top after changing pages.
+12. Run all tests and the production build.
+
+### Week 7 Checkpoint
+
+- [x] All pagination edge cases work correctly.
+- [x] Tests cover first, last, and middle pages.
+- [x] Tests cover page-number clicks and ellipsis rendering.
+- [x] First and last page numbers do not repeat.
+- [x] Filters and pagination interact correctly.
+- [x] Results summaries show the correct range.
+- [x] Failed-page retries preserve the page and submitted filters.
+- [x] All automated tests pass.
+- [x] The production build succeeds.
+- [x] Week 7 code is synchronized with GitHub main.
