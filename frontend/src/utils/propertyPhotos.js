@@ -1,3 +1,23 @@
+export function getPropertyPhotos(rawPhotos) {
+  let photos = rawPhotos;
+  if (typeof rawPhotos === "string") {
+    try {
+      photos = JSON.parse(rawPhotos);
+    } catch {
+      return [];
+    }
+  }
+  if (!Array.isArray(photos)) return [];
+  return photos.filter((photo) => {
+    if (typeof photo !== "string") return false;
+    try {
+      return ["https:", "http:"].includes(new URL(photo.trim()).protocol);
+    } catch {
+      return false;
+    }
+  }).map((photo) => photo.trim());
+}
+
 export function getFirstPropertyPhoto(rawPhotos) {
   let photos = rawPhotos;
 

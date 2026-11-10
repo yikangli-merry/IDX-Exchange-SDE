@@ -53,6 +53,18 @@ export async function fetchProperties(params = {}, options = {}) {
   return payload;
 }
 
-export function fetchPropertyDetail(id, options = {}) {
-  return requestJSON(`/api/properties/${encodeURIComponent(id)}`, options);
+export async function fetchPropertyDetail(id, options = {}) {
+  const payload = await requestJSON(`/api/properties/${encodeURIComponent(id)}`, options);
+  if (!payload || typeof payload !== "object" || Array.isArray(payload) || !payload.L_ListingID) {
+    throw new Error("The server returned invalid property details. Please try again.");
+  }
+  return payload;
+}
+
+export async function fetchPropertyOpenHouses(id, options = {}) {
+  const payload = await requestJSON(`/api/properties/${encodeURIComponent(id)}/openhouses`, options);
+  if (!Array.isArray(payload)) {
+    throw new Error("The server returned an invalid open house list. Please try again.");
+  }
+  return payload;
 }

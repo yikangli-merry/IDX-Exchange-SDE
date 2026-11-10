@@ -1,7 +1,13 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render as renderUI, screen } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
 import PropertyCard from "./PropertyCard";
 
+function render(ui) {
+  return renderUI(ui, { wrapper: ({ children }) => <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>{children}</MemoryRouter> });
+}
+
 const property = {
+  L_ListingID: "123",
   L_Address: "123 Main Street",
   L_City: "Irvine",
   L_State: "CA",

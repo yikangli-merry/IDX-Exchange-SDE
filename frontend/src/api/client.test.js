@@ -1,4 +1,32 @@
-import { fetchProperties, fetchPropertyDetail } from "./client";
+import { fetchProperties, fetchPropertyDetail, fetchPropertyOpenHouses } from "./client";
+
+test("fetches open houses using the listing ID and forwards the abort signal", async () => {
+  const events = [{ id: 1, all_data: '{"OpenHouseRemarks":"Welcome"}' }];
+  const controller = new AbortController();
+  fetch.mockResolvedValue({ ok: true, json: async () => events });
+  await expect(fetchPropertyOpenHouses("123/456", { signal: controller.signal })).resolves.toEqual(events);
+  expect(fetch).toHaveBeenCalledWith("/api/properties/123%2F456/openhouses", { signal: controller.signal });
+});
+
+test.each([null, {}, { results: [] }])("rejects invalid open house responses %p", async (payload) => {
+  fetch.mockResolvedValue({ ok: true, json: async () => payload });
+  await expect(fetchPropertyOpenHouses("123")).rejects.toThrow("invalid open house list");
+});
+
+test.each([null, [], {}, "bad"])("rejects invalid property detail responses %p", async (payload) => {
+  fetch.mockResolvedValue({ ok: true, json: async () => payload });
+  await expect(fetchPropertyDetail("123")).rejects.toThrow("invalid property details");
+});
+
+test("an existing property with no open houses returns an empty array", async () => {
+  fetch.mockResolvedValue({ ok: true, json: async () => [] });
+  await expect(fetchPropertyOpenHouses("123")).resolves.toEqual([]);
+});
+
+test("preserves property-not-found errors", async () => {
+  fetch.mockResolvedValue({ ok: false, status: 404, json: async () => ({ error: "Property not found" }) });
+  await expect(fetchPropertyDetail("999")).rejects.toThrow("Property not found (HTTP 404)");
+});
 
 beforeEach(() => {
   global.fetch = jest.fn();

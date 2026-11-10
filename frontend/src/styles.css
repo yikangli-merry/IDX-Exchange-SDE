@@ -57,6 +57,15 @@ h1 em { color: #406c53; font-family: Georgia, "Times New Roman", serif; font-wei
 .pagination-button:disabled { color: #9aa297; background: #f4f6f0; cursor: default; }
 .pagination-ellipsis { display: inline-flex; min-width: 18px; align-items: center; justify-content: center; color: #727c75; }
 .property-card { overflow: hidden; border: 1px solid #e1e5dd; border-radius: 12px; background: #fff; box-shadow: 0 2px 5px #1f382305; transition: transform .2s ease, box-shadow .2s ease, border-color .2s ease; }
+.property-card { position: relative; }
+.property-card-link { text-decoration: none; }
+.property-card-link::after { content: ""; position: absolute; inset: 0; z-index: 1; }
+.property-card:focus-within { outline: 3px solid #86a87a; outline-offset: 4px; }
+.photo-counter { position: absolute; bottom: 12px; right: 12px; padding: 5px 9px; border-radius: 20px; background: #17332cda; color: white; font-size: 11px; pointer-events: none; }
+.photo-arrow { position: absolute; top: 50%; z-index: 2; display: grid; place-items: center; width: 36px; height: 36px; padding: 0 0 3px; border: 1px solid #ffffff9c; border-radius: 50%; background: #ffffffed; color: #193b32; cursor: pointer; font-size: 28px; transform: translateY(-50%); }
+.photo-arrow:hover { background: #fff; }
+.photo-arrow-prev { left: 12px; }
+.photo-arrow-next { right: 12px; }
 .property-card:hover { transform: translateY(-5px); border-color: #b9c8b7; box-shadow: 0 14px 30px #213c3012; }
 .property-image-wrap { position: relative; aspect-ratio: 1.6; overflow: hidden; background: #eaf0e6; }
 .property-image { display: block; width: 100%; height: 100%; object-fit: cover; transition: transform .35s ease; }
@@ -84,13 +93,84 @@ h1 em { color: #406c53; font-family: Georgia, "Times New Roman", serif; font-wei
 .site-footer { display: flex; justify-content: space-between; gap: 20px; padding: 25px 0 30px; border-top: 1px solid #dfe5da; color: #82907e; font-size: 10px; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
+.detail-page { width: min(1200px, calc(100% - 80px)); margin: 0 auto; padding: 30px 0 64px; }
+.back-link { display: inline-block; margin-bottom: 28px; color: #42665c; font-size: 13px; text-decoration: none; }
+.back-link:hover, .directions-link:hover { text-decoration: underline; }
+.detail-heading { display: flex; justify-content: space-between; align-items: center; gap: 30px; margin-bottom: 30px; }
+.detail-heading > div { min-width: 0; }
+.detail-heading .eyebrow { margin-bottom: 14px; }
+.detail-heading h1 { font-size: clamp(30px, 3.4vw, 44px); letter-spacing: -1.2px; overflow-wrap: anywhere; }
+.detail-location { margin: 12px 0 0; color: #727c75; font-size: 14px; }
+.detail-price { flex-shrink: 0; margin: 0; color: #193b32; font-size: clamp(25px, 3vw, 36px); font-weight: 600; letter-spacing: -1px; }
+.property-gallery { min-width: 0; }
+.gallery-main, .gallery-empty { position: relative; display: block; width: 100%; height: clamp(240px, 42vw, 510px); overflow: hidden; padding: 0; border: 0; border-radius: 14px; background: #eaf0e6; }
+.gallery-main { cursor: zoom-in; }
+.gallery-main .property-image { object-fit: cover; }
+.gallery-expand { position: absolute; bottom: 16px; left: 16px; padding: 9px 12px; border-radius: 5px; background: #fffffff2; color: #193b32; font-size: 12px; }
+.gallery-thumbnails { display: flex; gap: 10px; overflow-x: auto; padding: 12px 4px 8px; scroll-padding: 4px; }
+.gallery-thumbnails button { flex: 0 0 100px; height: 70px; overflow: hidden; padding: 0; border: 3px solid transparent; border-radius: 8px; background: #eaf0e6; cursor: pointer; }
+.gallery-thumbnails button[aria-pressed="true"] { border-color: #406c53; }
+.gallery-thumbnails .photo-placeholder { font-size: 8px; gap: 2px; }
+.gallery-thumbnails .photo-placeholder svg { width: 20px; height: 20px; }
+.detail-stats { display: grid; grid-template-columns: repeat(4, 1fr); margin: 22px 0 30px; padding: 25px 0; border-block: 1px solid #dfe5da; }
+.detail-stats > div { display: flex; flex-direction: column-reverse; gap: 7px; padding-inline: 26px; border-left: 1px solid #dfe5da; }
+.detail-stats > div:first-child { border: 0; padding-left: 0; }
+.detail-stats dt { color: #727c75; font-size: 12px; }
+.detail-stats dd { margin: 0; color: #193b32; font-size: 24px; font-weight: 600; }
+.detail-columns { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); align-items: start; gap: 28px; }
+.detail-primary, .detail-columns > aside { min-width: 0; }
+.detail-panel { margin-bottom: 24px; padding: 28px; border: 1px solid #e1e5dd; border-radius: 12px; background: #fff; overflow-wrap: anywhere; }
+.detail-panel h2 { margin: 0 0 20px; color: #193b32; font-size: 19px; font-weight: 600; letter-spacing: -.4px; }
+.detail-panel p { color: #67736e; font-size: 13px; line-height: 1.9; }
+.property-description, .open-house-remarks { white-space: pre-line; }
+.property-description { margin-bottom: 0; }
+.property-facts { margin: 0; }
+.property-facts > div { display: flex; justify-content: space-between; gap: 20px; padding-block: 13px; border-top: 1px solid #edf0e9; font-size: 13px; }
+.property-facts dt { color: #727c75; }
+.property-facts dd { margin: 0; color: #193b32; font-weight: 500; text-align: right; }
+.detail-section-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; }
+.directions-link { color: #42665c; font-size: 12px; text-decoration: none; }
+.property-map iframe { display: block; width: 100%; min-height: 300px; border: 0; border-radius: 8px; }
+.map-unavailable { margin: 0; padding: 24px 16px; border-radius: 8px; background: #f3f6ef; }
+.open-houses .eyebrow { color: #42665c; font-size: 9px; margin: 0 0 10px; }
+.open-house-list { list-style: none; margin: 0; padding: 0; }
+.open-house-list li + li { margin-top: 20px; padding-top: 20px; border-top: 1px solid #edf0e9; }
+.open-house-list .open-house-date { margin: 0; color: #193b32; font-weight: 600; font-size: 14px; }
+.open-house-time { margin: 4px 0 0; }
+.open-house-remarks { margin-bottom: 0; }
+.lightbox-backdrop { position: fixed; inset: 0; z-index: 100; display: flex; align-items: center; justify-content: center; padding: 20px; background: #071510ed; }
+.lightbox { display: flex; flex-direction: column; width: min(1100px, 94vw); max-height: 94vh; color: white; }
+.lightbox:focus { outline: none; }
+.lightbox-toolbar { display: flex; justify-content: space-between; align-items: center; gap: 20px; padding-bottom: 12px; font-size: 13px; }
+.lightbox button { min-height: 44px; padding: 8px 16px; border: 1px solid #ffffff55; border-radius: 6px; background: #ffffff12; color: white; cursor: pointer; }
+.lightbox button:hover { background: #ffffff26; }
+.lightbox-close { font-size: 20px; }
+.lightbox-image { min-height: 0; height: min(70vh, 720px); }
+.lightbox-image .property-image { object-fit: contain; }
+.lightbox-image .photo-placeholder { border-radius: 10px; }
+.lightbox-navigation { display: flex; justify-content: space-between; gap: 20px; padding-top: 16px; }
+
 @media (max-width: 960px) {
+  .detail-page { width: calc(100% - 48px); }
+  .detail-columns { grid-template-columns: minmax(0, 1fr); gap: 0; }
+  .detail-panel { padding: 24px; }
   .filter-fields { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .property-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 22px; }
   .header-inner, .listings-page, .site-footer { width: calc(100% - 48px); }
 }
 
 @media (max-width: 600px) {
+  .detail-page { width: calc(100% - 36px); padding-top: 24px; }
+  .detail-heading { align-items: flex-start; flex-direction: column; gap: 18px; margin-bottom: 24px; }
+  .detail-heading h1 { max-width: none; }
+  .detail-stats > div { padding-inline: 12px; }
+  .detail-stats dd { font-size: 20px; }
+  .detail-panel { padding: 20px; }
+  .detail-section-heading { flex-wrap: wrap; gap: 0 16px; margin-bottom: 12px; }
+  .detail-section-heading h2 { margin-bottom: 12px; }
+  .gallery-thumbnails button { flex-basis: 80px; height: 58px; }
+  .property-map iframe { min-height: 260px; }
+  .lightbox-backdrop { padding: 12px; }
   .pagination { gap: 12px 8px; margin-top: 28px; }
   .pagination-pages { order: -1; width: 100%; gap: 4px; }
   .pagination-button { min-width: 38px; padding-inline: 8px; }

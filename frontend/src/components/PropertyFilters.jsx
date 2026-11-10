@@ -4,8 +4,8 @@ const EMPTY_FILTERS = { city: "", zipcode: "", minPrice: "", maxPrice: "", beds:
 const BED_OPTIONS = Array.from({ length: 11 }, (_, index) => String(index));
 const BATH_OPTIONS = Array.from({ length: 21 }, (_, index) => String(index / 2));
 
-export default function PropertyFilters({ onSearch, onClear }) {
-  const [filters, setFilters] = useState(EMPTY_FILTERS);
+export default function PropertyFilters({ onSearch, onClear, initialFilters = EMPTY_FILTERS }) {
+  const [filters, setFilters] = useState(() => ({ ...EMPTY_FILTERS, ...initialFilters }));
   const [error, setError] = useState("");
 
   function handleChange(event) {

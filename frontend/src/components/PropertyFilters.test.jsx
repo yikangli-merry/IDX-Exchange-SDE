@@ -11,6 +11,16 @@ function setup() {
 const sampleFilters = { city: "Irvine", zipcode: "09261", minPrice: "300000", maxPrice: "1500000", beds: "3", baths: "2.5" };
 const labels = { city: "City", zipcode: "ZIP Code", minPrice: "Min Price", maxPrice: "Max Price", beds: "Beds", baths: "Baths" };
 
+test("restores submitted filter values when returning to a listing page", () => {
+  const onSearch = jest.fn();
+  render(<PropertyFilters initialFilters={sampleFilters} onSearch={onSearch} onClear={jest.fn()} />);
+  Object.entries(sampleFilters).forEach(([name, value]) => {
+    expect(screen.getByLabelText(labels[name])).toHaveValue(["minPrice", "maxPrice"].includes(name) ? Number(value) : value);
+  });
+  fireEvent.click(screen.getByRole("button", { name: "Search" }));
+  expect(onSearch).toHaveBeenCalledWith(sampleFilters);
+});
+
 function fillForm(values = sampleFilters) {
   Object.entries(values).forEach(([name, value]) => {
     fireEvent.change(screen.getByLabelText(labels[name]), { target: { value } });

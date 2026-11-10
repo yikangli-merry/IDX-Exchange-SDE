@@ -1,7 +1,12 @@
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render as renderUI, screen, waitFor } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
 import { StrictMode } from "react";
 import { fetchProperties } from "../api/client";
 import ListingsPage from "./ListingsPage";
+
+function render(ui) {
+  return renderUI(<MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>{ui}</MemoryRouter>);
+}
 
 jest.mock("../api/client");
 jest.mock("../components/PropertyCard", () => function MockPropertyCard({ property }) {

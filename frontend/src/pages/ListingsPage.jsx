@@ -1,20 +1,36 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { fetchProperties } from "../api/client";
 import Pagination from "../components/Pagination";
 import PropertyCard from "../components/PropertyCard";
 import PropertyFilters from "../components/PropertyFilters";
 
+const FILTER_NAMES = ["city", "zipcode", "minPrice", "maxPrice", "beds", "baths"];
+
+function readSearch(search) {
+  const query = new URLSearchParams(search);
+  const filters = {};
+  if (FILTER_NAMES.some((name) => query.get(name)?.trim())) {
+    FILTER_NAMES.forEach((name) => { filters[name] = query.get(name)?.trim() || ""; });
+  }
+  const page = Number(query.get("page") || 1);
+  return { filters, page: Number.isSafeInteger(page) && page >= 1 && page <= 1000000 ? page : 1 };
+}
+
 export default function ListingsPage() {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const routeRequest = readSearch(location.search);
   const [properties, setProperties] = useState([]);
   const [total, setTotal] = useState(0);
-  const [currentPage, setCurrentPage] = useState(1);
+  const [currentPage, setCurrentPage] = useState(routeRequest.page);
   const [itemsPerPage] = useState(20);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const requestSequence = useRef(0);
   const activeController = useRef(null);
   const lastRequest = useRef({ filters: {}, page: 1 });
-  const previousPage = useRef(1);
+  const previousPage = useRef(routeRequest.page);
 
   const loadProperties = useCallback(async (filters, page = 1) => {
     // Invalidate synchronously, before another request or React state update can finish.
@@ -47,13 +63,27 @@ export default function ListingsPage() {
   }, [itemsPerPage]);
 
   useEffect(() => {
-    loadProperties({});
+    const request = readSearch(location.search);
+    loadProperties(location.state?.submittedFilters || request.filters, request.page);
 
     return () => {
       requestSequence.current += 1;
       activeController.current?.abort();
     };
-  }, [loadProperties]);
+  }, [loadProperties, location]);
+
+  function navigateToResults(filters, page = 1) {
+    // Stop an older response before the router commits the new location.
+    requestSequence.current += 1;
+    activeController.current?.abort();
+    const query = new URLSearchParams();
+    FILTER_NAMES.forEach((name) => {
+      const value = String(filters[name] ?? "").trim();
+      if (value) query.set(name, value);
+    });
+    if (page > 1) query.set("page", String(page));
+    navigate({ pathname: "/", search: query.toString() }, { state: { submittedFilters: { ...filters } } });
+  }
 
   useEffect(() => {
     if (previousPage.current !== currentPage) {
@@ -68,7 +98,7 @@ export default function ListingsPage() {
 
   function handlePageChange(page) {
     if (!loading && !error && Number.isInteger(page) && page >= 1 && page <= totalPages && page !== lastRequest.current.page) {
-      loadProperties(lastRequest.current.filters, page);
+      navigateToResults(lastRequest.current.filters, page);
     }
   }
 
@@ -80,7 +110,7 @@ export default function ListingsPage() {
         <p className="page-description">A new perspective. A fresh start. Explore homes and find the space for your next chapter.</p>
       </section>
 
-      <PropertyFilters onSearch={loadProperties} onClear={() => loadProperties({})} />
+      <PropertyFilters key={JSON.stringify(routeRequest.filters)} initialFilters={routeRequest.filters} onSearch={navigateToResults} onClear={() => navigateToResults({})} />
 
       <section className="listings-section" aria-labelledby="listings-title" aria-busy={loading}>
         <div className="listings-toolbar">
