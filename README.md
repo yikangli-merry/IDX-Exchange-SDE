@@ -1175,3 +1175,227 @@ Live database integration was not rerun because the configured credentials were 
 - [x] All automated tests pass.
 - [x] The production build succeeds.
 - [x] Week 7 code is synchronized with GitHub main.
+
+## Week 8: Property Detail Page End-to-End
+
+Week 8 connects the listings page to a complete property detail page with routing, photo browsing, location information, and open house schedules.
+
+### Goal
+
+- Navigate from property cards to `/property/:id`.
+- Return to the listings page with submitted filters and the page number preserved.
+- Display property information, photos, a map, and open houses.
+- Support photo carousels, thumbnails, and a full-screen lightbox.
+- Handle missing data, invalid IDs, failed requests, and unavailable photos.
+
+### Completed Work
+
+- Installed React Router and configured the listings and property detail routes.
+- Made property cards clickable using `L_ListingID`.
+- Saved submitted filters and page numbers in the listings URL.
+- Preserved existing filtering, pagination, retry, and request cancellation behavior.
+- Added property details including price, address, beds, baths, square footage, year built, description, property type, status, lot size, garage spaces, and MLS number.
+- Added a card photo carousel with Previous, Next, and an X / Y counter.
+- Prevented carousel arrow clicks from navigating to the detail page.
+- Added a detail photo gallery with a horizontally scrolling thumbnail strip.
+- Added a full-screen lightbox with keyboard navigation, Escape, backdrop closing, and focus restoration.
+- Added shared parsing for the full `L_Photos` JSON array.
+- Added Google Maps Embed API support and a Get Directions link.
+- Added open house dates, formatted times, and remarks parsed from `all_data`.
+- Added independent retries for property details and open houses.
+- Added loading, empty, error, and missing-data states.
+- Added automated tests and responsive styles.
+
+### Frontend Files
+
+New files:
+
+```text
+D:/idx_exchange/sde_project/frontend/.env.example
+D:/idx_exchange/sde_project/frontend/src/App.test.js
+D:/idx_exchange/sde_project/frontend/src/pages/PropertyDetailPage.jsx
+D:/idx_exchange/sde_project/frontend/src/pages/PropertyDetailPage.test.jsx
+D:/idx_exchange/sde_project/frontend/src/components/PropertyImageCarousel.jsx
+D:/idx_exchange/sde_project/frontend/src/components/PropertyImageCarousel.test.jsx
+D:/idx_exchange/sde_project/frontend/src/components/PropertyImageGallery.jsx
+D:/idx_exchange/sde_project/frontend/src/components/PropertyImageGallery.test.jsx
+D:/idx_exchange/sde_project/frontend/src/components/PropertyMap.jsx
+D:/idx_exchange/sde_project/frontend/src/components/PropertyMap.test.jsx
+D:/idx_exchange/sde_project/frontend/src/components/OpenHouses.jsx
+D:/idx_exchange/sde_project/frontend/src/components/OpenHouses.test.jsx
+```
+
+Existing application entry points, listings, cards, filters, API client, photo utilities, styles, dependencies, and related tests were updated.
+
+### Routes And API Requests
+
+Frontend routes:
+
+```text
+/                         Property listings
+/?city=Irvine&page=2       Filtered listings on page 2
+/property/:id             Property detail page
+```
+
+The existing backend endpoints are reused:
+
+```text
+GET /api/properties
+GET /api/properties/:id
+GET /api/properties/:id/openhouses
+```
+
+The API client now provides:
+
+```javascript
+fetchProperties(params, options)
+fetchPropertyDetail(id, options)
+fetchPropertyOpenHouses(id, options)
+```
+
+Returning from a property restores the submitted filters and page number. Unsaved draft filter edits are not restored after leaving the listings page.
+
+Direct visits to a property detail page return to the default listings page.
+
+### Photos And Debug Challenges
+
+Both photo components use the shared full-array parser for `L_Photos`.
+
+Malformed JSON, missing values, non-array data, and invalid photo URLs are handled safely. Failed images display a placeholder. Single-photo properties do not show navigation arrows.
+
+The lightbox supports:
+
+- Thumbnail selection.
+- Previous and Next buttons.
+- Left and right arrow keys.
+- Escape to close.
+- Clicking the backdrop to close.
+- Focus containment and restoration.
+
+The lightbox container uses `tabIndex={-1}` and receives focus when opened. This allows its keyboard handler to receive Escape and arrow-key events.
+
+Open house remarks are extracted in the React component by parsing `all_data` and reading `OpenHouseRemarks`. The backend continues returning `all_data` unchanged.
+
+### Google Maps Configuration
+
+Copy the configuration template:
+
+```powershell
+Copy-Item "D:\idx_exchange\sde_project\frontend\.env.example" "D:\idx_exchange\sde_project\frontend\.env"
+```
+
+Set the following value in the local environment file:
+
+```text
+REACT_APP_GOOGLE_MAPS_API_KEY=your_key
+```
+
+Enable Maps Embed API in Google Cloud and restrict the key to:
+
+```text
+Website: http://localhost:3000/*
+API: Maps Embed API
+```
+
+Restart the frontend after changing the environment file.
+
+The map iframe only loads when both coordinates are valid and a key is configured. Without a key, the page displays a fallback message and keeps Get Directions available when coordinates exist.
+
+The real environment file is ignored by Git.
+
+### Run And Test
+
+Start the backend with a reachable database and valid credentials:
+
+```powershell
+cd D:\idx_exchange\sde_project\backend
+npm.cmd run dev
+```
+
+In another terminal, start the frontend:
+
+```powershell
+cd D:\idx_exchange\sde_project\frontend
+npm.cmd start
+```
+
+Open:
+
+```text
+http://localhost:3000
+```
+
+Run backend tests:
+
+```powershell
+cd D:\idx_exchange\sde_project\backend
+npm.cmd test
+```
+
+Run frontend tests and create a production build:
+
+```powershell
+cd D:\idx_exchange\sde_project\frontend
+npm.cmd test -- --watchAll=false --runInBand
+npm.cmd run build
+```
+
+Verified results:
+
+```text
+Backend: 14 tests passing
+Frontend: 169 tests passing across 12 test suites
+Production build: compiled successfully
+Responsive checks: 390px, 800px, and 1280px layouts passed without page-level horizontal overflow
+Browser checks: card navigation, carousel controls, thumbnails, lightbox keyboard controls, return navigation, open house retry, empty results, invalid IDs, and 404 handling passed
+Get Directions: opened Google Maps in a new tab
+```
+
+Browser verification used a temporary local server with deterministic API fixtures and test images.
+
+Live database integration was not completed because the running MySQL instance rejected the configured credentials. Database and environment settings were preserved.
+
+A real Google Maps Embed API key was not configured. The iframe URL and coordinate behavior were tested automatically; live embedded map rendering remains pending.
+
+The temporary browser verification server was stopped after testing.
+
+### Week 8 Demo Checklist
+
+1. Apply filters and navigate to a later listings page.
+2. Change a card photo without opening the property.
+3. Click the card and show the correct property detail route.
+4. Show property information and missing-data fallbacks.
+5. Select thumbnails and open the full-screen lightbox.
+6. Navigate photos using buttons and arrow keys.
+7. Close the lightbox with Escape and the backdrop.
+8. Show open house dates, times, and remarks.
+9. Show an empty open house schedule and an independently retryable error.
+10. Show Get Directions opening Google Maps in a new tab.
+11. Return to the original filters and page number.
+12. Show invalid and nonexistent property IDs without a crash.
+13. Run all tests and the production build.
+14. After configuring a valid key, verify the real embedded map.
+
+### Week 8 Checkpoint
+
+- [x] Listings, detail, and return navigation work.
+- [x] Submitted filters and page numbers are restored.
+- [x] Multi-photo and single-photo properties are supported.
+- [x] Carousel arrows do not trigger detail navigation.
+- [x] Thumbnails and lightbox controls work.
+- [x] Escape, arrow keys, and focus restoration work.
+- [x] Open house remarks are parsed in the frontend.
+- [x] Missing data and request errors are handled.
+- [x] All automated tests pass.
+- [x] The production build succeeds.
+- [x] Responsive layouts pass browser checks.
+- [x] Week 8 code is synchronized with GitHub main.
+- [ ] Verify live integration with valid local database credentials.
+- [ ] Configure a real Maps Embed API key and verify the embedded map.
+
+### Notes
+
+- Property routes use `L_ListingID`, not the database auto-increment ID.
+- Backend endpoints and database tables are unchanged.
+- Unit tests use mocks and do not require a running database.
+- Production hosting must serve the React entry page for direct property-route requests.
