@@ -90,3 +90,41 @@ test("unknown paths render a recoverable page-not-found screen", () => {
   expect(screen.getByRole("heading", { name: "Page not found" })).toBeInTheDocument();
   expect(screen.getByRole("link", { name: "Back to listings" })).toHaveAttribute("href", "/");
 });
+
+test("deep links, detail return, remount, and browser history preserve sorting", async () => {
+  const entry = "/?city=Irvine&sortBy=L_SystemPrice&sortOrder=desc&page=2";
+  const view = mount(entry);
+  await screen.findByRole("link", { name: "Home 21" });
+  expect(screen.getByLabelText("Sort by")).toHaveValue("L_SystemPrice:desc");
+  fireEvent.click(screen.getByRole("link", { name: "Home 21" }));
+  await screen.findByRole("link", { name: /Back to listings/ });
+  fireEvent.click(screen.getByRole("link", { name: /Back to listings/ }));
+  await screen.findByRole("link", { name: "Home 21" });
+  expect(screen.getByTestId("route").textContent).toBe(entry);
+  fireEvent.change(screen.getByLabelText("Sort by"), { target: { value: "LM_Int2_3:asc" } });
+  await screen.findByRole("link", { name: "Home 1" });
+  fireEvent.click(screen.getByRole("button", { name: "Browser back" }));
+  await screen.findByRole("link", { name: "Home 21" });
+  expect(screen.getByLabelText("Sort by")).toHaveValue("L_SystemPrice:desc");
+  fireEvent.click(screen.getByRole("button", { name: "Browser forward" }));
+  await screen.findByRole("link", { name: "Home 1" });
+  const refreshedURL = screen.getByTestId("route").textContent;
+  view.unmount();
+  mount(refreshedURL);
+  await screen.findByRole("link", { name: "Home 1" });
+  expect(screen.getByLabelText("Sort by")).toHaveValue("LM_Int2_3:asc");
+  expect(fetchProperties.mock.calls.at(-1)[0]).toEqual(expect.objectContaining({ city: "Irvine", sortBy: "LM_Int2_3", sortOrder: "asc", offset: 0 }));
+});
+
+test("the application boundary catches a child render error and retains navigation", async () => {
+  const expectedError = jest.spyOn(console, "error").mockImplementation(() => {});
+  fetchProperties.mockResolvedValueOnce({ total: 1, results: [{ ...property, L_Address: {} }] });
+  mount();
+  expect(await screen.findByRole("alert")).toHaveTextContent("Something went wrong");
+  expect(screen.getByRole("link", { name: "IDX Exchange home" })).toBeInTheDocument();
+  expect(screen.getByText("A space for every story.")).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+  await screen.findByRole("link", { name: "Home 1" });
+  expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  expect(expectedError).toHaveBeenCalled();
+});

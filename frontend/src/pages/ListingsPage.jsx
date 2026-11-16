@@ -4,6 +4,7 @@ import { fetchProperties } from "../api/client";
 import Pagination from "../components/Pagination";
 import PropertyCard from "../components/PropertyCard";
 import PropertyFilters from "../components/PropertyFilters";
+import SortControls from "../components/SortControls";
 
 const FILTER_NAMES = ["city", "zipcode", "minPrice", "maxPrice", "beds", "baths"];
 
@@ -14,7 +15,11 @@ function readSearch(search) {
     FILTER_NAMES.forEach((name) => { filters[name] = query.get(name)?.trim() || ""; });
   }
   const page = Number(query.get("page") || 1);
-  return { filters, page: Number.isSafeInteger(page) && page >= 1 && page <= 1000000 ? page : 1 };
+  const sorting = {};
+  ["sortBy", "sortOrder"].forEach((name) => {
+    if (query.has(name)) sorting[name] = query.get(name);
+  });
+  return { filters, sorting, page: Number.isSafeInteger(page) && page >= 1 && page <= 1000000 ? page : 1 };
 }
 
 export default function ListingsPage() {
@@ -29,16 +34,16 @@ export default function ListingsPage() {
   const [error, setError] = useState("");
   const requestSequence = useRef(0);
   const activeController = useRef(null);
-  const lastRequest = useRef({ filters: {}, page: 1 });
+  const lastRequest = useRef({ filters: {}, page: 1, sorting: {} });
   const previousPage = useRef(routeRequest.page);
 
-  const loadProperties = useCallback(async (filters, page = 1) => {
+  const loadProperties = useCallback(async (filters, page = 1, sorting = {}) => {
     // Invalidate synchronously, before another request or React state update can finish.
     const requestId = ++requestSequence.current;
     activeController.current?.abort();
     const controller = new AbortController();
     activeController.current = controller;
-    lastRequest.current = { filters: { ...filters }, page };
+    lastRequest.current = { filters: { ...filters }, page, sorting: { ...sorting } };
     const isCurrent = () => requestId === requestSequence.current && !controller.signal.aborted;
 
     setLoading(true);
@@ -46,7 +51,7 @@ export default function ListingsPage() {
     setCurrentPage(page);
 
     try {
-      const payload = await fetchProperties({ ...filters, limit: itemsPerPage, offset: (page - 1) * itemsPerPage }, { signal: controller.signal });
+      const payload = await fetchProperties({ ...filters, ...sorting, limit: itemsPerPage, offset: (page - 1) * itemsPerPage }, { signal: controller.signal });
       if (isCurrent()) {
         setProperties(payload.results);
         setTotal(payload.total);
@@ -64,7 +69,7 @@ export default function ListingsPage() {
 
   useEffect(() => {
     const request = readSearch(location.search);
-    loadProperties(location.state?.submittedFilters || request.filters, request.page);
+    loadProperties(location.state?.submittedFilters || request.filters, request.page, request.sorting);
 
     return () => {
       requestSequence.current += 1;
@@ -72,15 +77,19 @@ export default function ListingsPage() {
     };
   }, [loadProperties, location]);
 
-  function navigateToResults(filters, page = 1) {
+  function navigateToResults(filters, page = 1, sorting = {}) {
     // Stop an older response before the router commits the new location.
     requestSequence.current += 1;
     activeController.current?.abort();
+    // A second action can run before the router effect. Keep its submitted
+    // filters current so a quick Search → Sort does not restore older filters.
+    lastRequest.current = { filters: { ...filters }, page, sorting: { ...sorting } };
     const query = new URLSearchParams();
     FILTER_NAMES.forEach((name) => {
       const value = String(filters[name] ?? "").trim();
       if (value) query.set(name, value);
     });
+    Object.entries(sorting).forEach(([name, value]) => query.set(name, value));
     if (page > 1) query.set("page", String(page));
     navigate({ pathname: "/", search: query.toString() }, { state: { submittedFilters: { ...filters } } });
   }
@@ -98,7 +107,7 @@ export default function ListingsPage() {
 
   function handlePageChange(page) {
     if (!loading && !error && Number.isInteger(page) && page >= 1 && page <= totalPages && page !== lastRequest.current.page) {
-      navigateToResults(lastRequest.current.filters, page);
+      navigateToResults(lastRequest.current.filters, page, lastRequest.current.sorting);
     }
   }
 
@@ -119,6 +128,7 @@ export default function ListingsPage() {
             <p className="property-count" role="status">Showing <strong>{firstResult.toLocaleString("en-US")}–{lastResult.toLocaleString("en-US")}</strong> of <strong>{total.toLocaleString("en-US")}</strong> properties</p>
           )}
         </div>
+        <SortControls sorting={routeRequest.sorting} onChange={(sorting) => navigateToResults(lastRequest.current.filters, 1, sorting)} />
 
         {loading ? (
           <div className="state-panel" role="status">
@@ -131,7 +141,7 @@ export default function ListingsPage() {
             <span className="state-icon" aria-hidden="true">!</span>
             <h3>We couldn't load the properties</h3>
             <p>{error}</p>
-            <button type="button" className="retry-button" onClick={() => loadProperties(lastRequest.current.filters, lastRequest.current.page)}>Try again <span aria-hidden="true">&rarr;</span></button>
+            <button type="button" className="retry-button" onClick={() => loadProperties(lastRequest.current.filters, lastRequest.current.page, lastRequest.current.sorting)}>Try again <span aria-hidden="true">&rarr;</span></button>
           </div>
         ) : properties.length === 0 ? (
           <div className="state-panel" role="status">

@@ -52,6 +52,92 @@ test("shows a useful empty result state", async () => {
   expect(screen.getByText("Try adjusting your filters or clearing them to see more properties.")).toBeInTheDocument();
 });
 
+test.each([
+  ["L_SystemPrice", "asc"], ["L_SystemPrice", "desc"],
+  ["ListingContractDate", "asc"], ["ListingContractDate", "desc"],
+  ["LM_Int2_3", "asc"], ["LM_Int2_3", "desc"],
+  ["L_Keyword2", "asc"], ["L_Keyword2", "desc"],
+])("requests global %s %s sorting and resets a later page", async (sortBy, sortOrder) => {
+  fetchProperties.mockImplementation(({ offset }) => Promise.resolve(pagePayload(offset / 20 + 1, 60)));
+  render(<ListingsPage />);
+  await screen.findByRole("heading", { name: "Home 1", exact: true });
+  fireEvent.click(screen.getByRole("button", { name: "Next", exact: true }));
+  await screen.findByRole("heading", { name: "Home 21", exact: true });
+  fireEvent.change(screen.getByLabelText("Sort by"), { target: { value: `${sortBy}:${sortOrder}` } });
+  await screen.findByRole("heading", { name: "Home 1", exact: true });
+  expect(fetchProperties).toHaveBeenLastCalledWith({ sortBy, sortOrder, limit: 20, offset: 0 }, { signal: expect.any(AbortSignal) });
+  fireEvent.click(screen.getByRole("button", { name: "Next", exact: true }));
+  await screen.findByRole("heading", { name: "Home 21", exact: true });
+  expect(fetchProperties).toHaveBeenLastCalledWith({ sortBy, sortOrder, limit: 20, offset: 20 }, { signal: expect.any(AbortSignal) });
+});
+
+test.each(["Search", "Clear Filters"])("%s resets sorting and pagination while draft edits preserve them", async (action) => {
+  fetchProperties.mockImplementation(({ offset }) => Promise.resolve(pagePayload(offset / 20 + 1, 60)));
+  render(<ListingsPage />);
+  await screen.findByRole("heading", { name: "Home 1", exact: true });
+  fireEvent.change(screen.getByLabelText("Sort by"), { target: { value: "L_SystemPrice:desc" } });
+  await screen.findByRole("heading", { name: "Home 1", exact: true });
+  fireEvent.click(screen.getByRole("button", { name: "Next", exact: true }));
+  await screen.findByRole("heading", { name: "Home 21", exact: true });
+  fireEvent.change(screen.getByLabelText("City"), { target: { value: "Irvine" } });
+  expect(screen.getByLabelText("Sort by")).toHaveValue("L_SystemPrice:desc");
+  fireEvent.click(screen.getByRole("button", { name: action }));
+  await screen.findByRole("heading", { name: "Home 1", exact: true });
+  expect(screen.getByLabelText("Sort by")).toHaveValue("");
+  expect(fetchProperties.mock.calls.at(-1)[0]).toEqual(expect.objectContaining({ limit: 20, offset: 0 }));
+  expect(fetchProperties.mock.calls.at(-1)[0]).not.toHaveProperty("sortBy");
+});
+
+test("sorting and retry use submitted filters instead of an unsaved draft", async () => {
+  fetchProperties.mockResolvedValue(pagePayload(1, 60));
+  render(<ListingsPage />);
+  await screen.findByRole("heading", { name: "Home 1", exact: true });
+  searchCity("Irvine");
+  await screen.findByRole("heading", { name: "Home 1", exact: true });
+  fireEvent.change(screen.getByLabelText("City"), { target: { value: "Pasadena" } });
+  fetchProperties.mockRejectedValueOnce(new Error("Sorted search unavailable"));
+  fireEvent.change(screen.getByLabelText("Sort by"), { target: { value: "ListingContractDate:desc" } });
+  expect(await screen.findByRole("alert")).toHaveTextContent("Sorted search unavailable");
+  expect(screen.getByLabelText("City")).toHaveValue("Pasadena");
+  fireEvent.click(screen.getByRole("button", { name: /Try again/ }));
+  await screen.findByRole("heading", { name: "Home 1", exact: true });
+  expect(fetchProperties.mock.calls.at(-1)[0]).toEqual(expect.objectContaining({ city: "Irvine", sortBy: "ListingContractDate", sortOrder: "desc", offset: 0 }));
+});
+
+test("a sort change before the navigation effect keeps the just-submitted filters", async () => {
+  fetchProperties.mockResolvedValue(pagePayload(1, 60));
+  render(<ListingsPage />);
+  await screen.findByRole("heading", { name: "Home 1", exact: true });
+  fireEvent.change(screen.getByLabelText("City"), { target: { value: "Irvine" } });
+  act(() => {
+    fireEvent.click(screen.getByRole("button", { name: "Search", exact: true }));
+    fireEvent.change(screen.getByLabelText("Sort by"), { target: { value: "L_SystemPrice:asc" } });
+  });
+  await screen.findByRole("heading", { name: "Home 1", exact: true });
+  expect(fetchProperties.mock.calls.at(-1)[0]).toEqual(expect.objectContaining({ city: "Irvine", sortBy: "L_SystemPrice", sortOrder: "asc", offset: 0 }));
+});
+
+test.each(["resolve", "reject"])("an older sorted request cannot %s over a newer order", async (outcome) => {
+  const older = deferred();
+  fetchProperties.mockResolvedValue(pagePayload(1, 60)).mockResolvedValueOnce(pagePayload(1, 60)).mockReturnValueOnce(older.promise).mockResolvedValueOnce({ total: 1, results: [{ id: 3, L_Address: "Newest order" }] });
+  render(<ListingsPage />);
+  await screen.findByRole("heading", { name: "Home 1", exact: true });
+  fireEvent.change(screen.getByLabelText("Sort by"), { target: { value: "L_SystemPrice:asc" } });
+  const olderSignal = fetchProperties.mock.calls.at(-1)[1].signal;
+  fireEvent.change(screen.getByLabelText("Sort by"), { target: { value: "L_SystemPrice:desc" } });
+  await screen.findByRole("heading", { name: "Newest order" });
+  expect(olderSignal.aborted).toBe(true);
+  await act(async () => {
+    if (outcome === "resolve") older.resolve(pagePayload(1, 60));
+    else older.reject(new Error("Outdated sorted request"));
+  });
+  expect(screen.getByRole("heading", { name: "Newest order" })).toBeInTheDocument();
+  expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  fireEvent.change(screen.getByLabelText("Sort by"), { target: { value: "" } });
+  await screen.findByRole("heading", { name: "Home 1", exact: true });
+  expect(fetchProperties.mock.calls.at(-1)[0]).not.toHaveProperty("sortBy");
+});
+
 const emptyFilters = { city: "", zipcode: "", minPrice: "", maxPrice: "", beds: "", baths: "" };
 
 function deferred() {

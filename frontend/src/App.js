@@ -1,8 +1,10 @@
-import { Link, Route, Routes } from "react-router-dom";
+import { Link, Route, Routes, useLocation } from "react-router-dom";
+import ErrorBoundary from "./components/ErrorBoundary";
 import ListingsPage from "./pages/ListingsPage";
 import PropertyDetailPage from "./pages/PropertyDetailPage";
 
 export default function App() {
+  const location = useLocation();
   return (
     <>
       <header className="site-header">
@@ -14,11 +16,13 @@ export default function App() {
           <span className="header-label">Find your next chapter</span>
         </div>
       </header>
-      <Routes>
-        <Route path="/" element={<ListingsPage />} />
-        <Route path="/property/:id" element={<PropertyDetailPage />} />
-        <Route path="*" element={<main className="detail-page"><div className="state-panel"><h1>Page not found</h1><Link to="/" className="back-link">Back to listings</Link></div></main>} />
-      </Routes>
+      <ErrorBoundary resetKey={`${location.key}:${location.pathname}${location.search}`}>
+        <Routes>
+          <Route path="/" element={<ListingsPage />} />
+          <Route path="/property/:id" element={<PropertyDetailPage />} />
+          <Route path="*" element={<main className="detail-page"><div className="state-panel"><h1>Page not found</h1><Link to="/" className="back-link">Back to listings</Link></div></main>} />
+        </Routes>
+      </ErrorBoundary>
       <footer className="site-footer">
         <span>IDX Exchange</span>
         <span>A space for every story.</span>

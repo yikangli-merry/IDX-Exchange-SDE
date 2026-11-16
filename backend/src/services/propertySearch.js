@@ -1,5 +1,6 @@
 const DEFAULT_LIMIT = 20;
 const MAX_LIMIT = 100;
+const SORT_FIELDS = ["L_SystemPrice", "ListingContractDate", "LM_Int2_3", "L_Keyword2"];
 
 const ALLOWED_QUERY_PARAMS = [
   "city",
@@ -10,6 +11,8 @@ const ALLOWED_QUERY_PARAMS = [
   "baths",
   "limit",
   "offset",
+  "sortBy",
+  "sortOrder",
 ];
 
 const PROPERTY_SELECT_FIELDS = [
@@ -28,6 +31,7 @@ const PROPERTY_SELECT_FIELDS = [
   "PhotoCount",
   "L_Status",
   "ModificationTimestamp",
+  "ListingContractDate",
 ];
 
 class ValidationError extends Error {
@@ -133,6 +137,18 @@ function parseNumberParam(query, name) {
 function parsePropertySearchQuery(query) {
   ensureAllowedParams(query);
 
+  const sortBy = parseTextParam(query, "sortBy");
+  const sortOrder = parseTextParam(query, "sortOrder");
+  if (sortBy !== undefined && !SORT_FIELDS.includes(sortBy)) {
+    throw new ValidationError(`"sortBy" must be one of: ${SORT_FIELDS.join(", ")}.`);
+  }
+  if (sortOrder !== undefined && !["asc", "desc"].includes(sortOrder)) {
+    throw new ValidationError('"sortOrder" must be "asc" or "desc".');
+  }
+  if (sortOrder !== undefined && sortBy === undefined) {
+    throw new ValidationError('"sortOrder" requires "sortBy".');
+  }
+
   const parsed = {
     city: parseTextParam(query, "city"),
     zipcode: parseTextParam(query, "zipcode"),
@@ -140,6 +156,8 @@ function parsePropertySearchQuery(query) {
     maxPrice: parseNumberParam(query, "maxPrice"),
     beds: parseIntegerParam(query, "beds"),
     baths: parseNumberParam(query, "baths"),
+    sortBy,
+    sortOrder: sortBy === undefined ? undefined : sortOrder || "asc",
     limit: parseIntegerParam(query, "limit", {
       defaultValue: DEFAULT_LIMIT,
       min: 1,
@@ -206,11 +224,21 @@ function buildPropertyWhereClause(filters) {
 function buildPropertySearchSql(filters) {
   const { whereClause, values } = buildPropertyWhereClause(filters);
   const selectedFields = PROPERTY_SELECT_FIELDS.join(", ");
+  // SQL identifiers cannot use value placeholders. Only interpolate validated constants.
+  if (filters.sortBy !== undefined && !SORT_FIELDS.includes(filters.sortBy)) {
+    throw new ValidationError("Invalid sort field.");
+  }
+  if (filters.sortBy !== undefined && !["asc", "desc"].includes(filters.sortOrder)) {
+    throw new ValidationError("Invalid sort order.");
+  }
+  const orderBy = filters.sortBy === undefined
+    ? "id ASC"
+    : `${filters.sortBy} ${filters.sortOrder.toUpperCase()}, id ASC`;
 
   return {
     countSql: `SELECT COUNT(*) AS total FROM rets_property ${whereClause}`.trim(),
     countValues: values,
-    resultsSql: `SELECT ${selectedFields} FROM rets_property ${whereClause} ORDER BY id ASC LIMIT ? OFFSET ?`.trim(),
+    resultsSql: `SELECT ${selectedFields} FROM rets_property ${whereClause} ORDER BY ${orderBy} LIMIT ? OFFSET ?`.trim(),
     resultsValues: [...values, filters.limit, filters.offset],
   };
 }
