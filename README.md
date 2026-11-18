@@ -1507,7 +1507,6 @@ connection only and restores the original session SQL mode.
 - `backend/sql/week9_property_indexes.sql`
 - `backend/scripts/benchmarkPropertySearch.js`
 - `docs/week9-performance.md`
-- `docs/week9-readme.md` — this Week 9 section as a standalone copyable document.
 
 Existing backend search logic and tests, listings and navigation tests, app routing,
 styles, and the root README were updated. No third-party dependencies were added.
